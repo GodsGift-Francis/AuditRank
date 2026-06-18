@@ -1,0 +1,22 @@
+{
+  "name": "auditrank-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AuditRank — zero-key AI search visibility audit, as a self-hostable web application. Reads the site server-side (no keys, no CORS), scores it, and returns a concrete fix plan.",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "test": "tsx test/regression.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5"
+  }
+}

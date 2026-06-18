@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditRank — Tracked sites</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="bar"><div class="wrap bar-in">
+  <div class="brand"><span class="dot"><span></span></span><span>AuditRank</span></div>
+  <div class="bar-tag"><a href="/" style="color:rgba(255,255,255,.7)">← Run an audit</a></div>
+</div></header>
+
+<section class="app" style="margin-top:40px">
+  <div class="wrap">
+    <div class="panel show">
+      <h2>Tracked sites</h2>
+      <p class="lede">Every site you audit is saved and re-checked weekly. This is the trend across all of them. No account needed.</p>
+      <div id="list"><p class="hint" style="color:var(--muted)">Loading…</p></div>
+    </div>
+  </div>
+</section>
+
+<script>
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+fetch('/api/sites').then(r=>r.json()).then(d=>{
+  const el=document.getElementById('list');
+  if(!d.ok||!d.sites.length){el.innerHTML='<p class="hint" style="color:var(--muted)">No audits saved yet. Run one on the home page and it will appear here.</p>';return;}
+  el.innerHTML='<div class="bars">'+d.sites.map(s=>{
+    const change=s.prev==null?null:s.latest-s.prev;
+    const tag=change==null?'<span class="barnote">first audit</span>':(change>0?`<span style="color:var(--ok);font-family:JetBrains Mono;font-size:12px">▲ +${change}</span>`:change<0?`<span style="color:var(--bad);font-family:JetBrains Mono;font-size:12px">▼ ${change}</span>`:`<span style="color:var(--muted);font-family:JetBrains Mono;font-size:12px">▬ 0</span>`);
+    const col=s.latest>=80?'var(--ok)':s.latest>=60?'var(--ok)':s.latest>=35?'var(--warn)':'var(--bad)';
+    return `<div class="barrow"><div class="lab"><span><b>${esc(s.name||s.key)}</b> <span style="color:var(--muted)">${esc(s.key)}</span></span><span class="pct">${s.latest}/100 &nbsp; ${tag}</span></div><div class="track"><i style="width:${s.latest}%;background:${col}"></i></div></div>`;
+  }).join('')+'</div>';
+});
+</script>
+</body>
+</html>

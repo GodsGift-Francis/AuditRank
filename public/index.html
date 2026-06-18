@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditRank — AI Search Visibility Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <div class="brand"><span class="dot"><span></span></span><span id="brandName">AuditRank</span></div>
+    <div class="bar-tag">AI search visibility · audit &amp; fix</div>
+  </div>
+</header>
+
+<section class="hero" id="hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><b></b> AI search visibility · 2026</span>
+      <h1>When buyers ask AI,<br>is it naming <span class="hl">your business?</span></h1>
+      <p class="sub">Enter your website. AuditRank reads your live pages on our server, scores how likely ChatGPT, Perplexity and Google AI are to recommend you, then hands you a concrete plan to fix it.</p>
+      <div class="cta-row">
+        <button class="btn btn-signal" onclick="start()">Run my visibility audit →</button>
+        <span class="cta-note">No signup · no API key · reads your real site</span>
+      </div>
+      <div class="trust">
+        <div class="t"><b>+123%</b><span>AI referral traffic to small-business sites, in months</span></div>
+        <div class="t"><b>9×</b><span>better conversion than classic search</span></div>
+        <div class="t"><b>48%</b><span>of Google searches now show an AI answer</span></div>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="ans">
+        <div class="ans-top"><span class="ans-mk"></span> AI Search</div>
+        <div class="ans-prompt">Who's the best roofer in Austin?</div>
+        <div class="ans-body">
+          <p class="l1">Based on reviews and reputation, the most recommended are:</p>
+          <div class="ans-list">
+            <div class="co c1"><i>1</i> Apex Roofing Co.</div>
+            <div class="co c2"><i>2</i> Lone Star Roofs</div>
+            <div class="co c3"><i>3</i> Hill Country Roofing</div>
+          </div>
+        </div>
+        <div class="ans-you"><span class="pill">Your business — not in this answer</span></div>
+      </div>
+      <div class="engines hero-engines">
+        <span class="chip">ChatGPT</span><span class="chip">Perplexity</span><span class="chip">Google AI</span><span class="chip">Gemini</span><span class="chip">Claude</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-fade" aria-hidden="true"></div>
+</section>
+
+<section class="app">
+  <div class="wrap">
+    <div class="stepper" id="stepper" style="display:none">
+      <div class="s" data-step="0"><span class="n">1</span><span class="lbl">Your business</span></div>
+      <div class="s" data-step="1"><span class="n">2</span><span class="lbl">Audit</span></div>
+      <div class="s" data-step="2"><span class="n">3</span><span class="lbl">Score &amp; fixes</span></div>
+    </div>
+
+    <!-- INTAKE -->
+    <div class="panel" id="p_intake">
+      <h2>Let's analyse your site</h2>
+      <p class="lede">Enter your website and we'll read it on our server — no keys, no installs — to detect what AI engines can and can't see. No website? You can still self-assess.</p>
+      <div class="field">
+        <label>Business name</label>
+        <input id="f_name" type="text" placeholder="e.g. Summit Roofing" autocomplete="organization">
+      </div>
+      <div class="field">
+        <label>Website <span class="opt">— we'll read this page to detect your signals</span></label>
+        <input id="f_site" type="url" placeholder="https://yourbusiness.com" autocomplete="url">
+        <div class="hint">Tip: use your homepage or main service page. Nothing is stored.</div>
+      </div>
+      <div class="nav-btns">
+        <button class="btn btn-ghost" onclick="goSelfAssess()">No website — self-assess</button>
+        <button class="btn btn-primary" onclick="runAudit()">Analyse my site →</button>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="panel" id="p_loading">
+      <div class="loadwrap">
+        <div class="spinner"><svg viewBox="0 0 50 50" width="66" height="66"><circle cx="25" cy="25" r="20" fill="none" stroke="var(--line)" stroke-width="5"/><circle cx="25" cy="25" r="20" fill="none" stroke="var(--amber)" stroke-width="5" stroke-linecap="round" stroke-dasharray="90 150"/></svg></div>
+        <h2 id="loadTitle">Reading your site…</h2>
+        <div class="loadmsg" id="loadMsg">Fetching your website…</div>
+        <div class="loadsub" id="loadSub">Reading your real pages on our server — no browser limits.</div>
+        <div class="progress"><i></i></div>
+      </div>
+    </div>
+
+    <!-- LIVE AUDIT THEATER (V1) -->
+    <div class="panel" id="p_theater">
+      <h2 id="theaterTitle">Auditing your site…</h2>
+      <p class="lede">Reading your live pages on our server and checking each signal in real time.</p>
+      <div class="theater" id="theaterSteps"></div>
+      <div class="sub-h" id="theaterFindHead" style="display:none">What we're finding</div>
+      <div class="research-card foundcard" id="theaterFind" style="display:none"><ul></ul></div>
+    </div>
+
+    <!-- READ FAILED -->
+    <div class="panel" id="p_readfail">
+      <h2>We couldn't read your site automatically</h2>
+      <p class="lede">It may block automated readers or be temporarily unreachable. Two easy options:</p>
+      <div class="research-card" style="border-left-color:var(--depth)">
+        <div class="rh" style="color:var(--depth)">Option 1 — paste your page (best, still analysed)</div>
+        <ul><li><span class="mk">1</span><span>On your site, right-click &rarr; <b>View Page Source</b> (Ctrl/Cmd+U).</span></li>
+        <li><span class="mk">2</span><span>Select all (Ctrl/Cmd+A), copy, and paste it below.</span></li></ul>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label>Paste your page HTML</label>
+        <textarea id="f_html" placeholder="Paste your page source here…" style="width:100%;min-height:120px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);font-family:'JetBrains Mono';font-size:12.5px;resize:vertical"></textarea>
+      </div>
+      <div class="nav-btns">
+        <button class="btn btn-ghost" onclick="goSelfAssess()">Skip — self-assess</button>
+        <button class="btn btn-primary" onclick="analysePasted()">Analyse pasted HTML →</button>
+      </div>
+    </div>
+
+    <!-- AUDIT (self-assess) -->
+    <div class="panel" id="p_audit">
+      <h2 id="auditTitle">Your visibility audit</h2>
+      <p class="lede" id="auditLede">Answer honestly — this scores how AI sees you.</p>
+      <div id="auditList"></div>
+      <div class="nav-btns">
+        <button class="btn btn-ghost" onclick="show('p_intake')">← Back</button>
+        <button class="btn btn-primary" id="scoreBtn" onclick="seeScore()">See my score →</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="panel" id="p_results">
+      <div class="notice" id="modeNotice" style="display:none"></div>
+      <div class="score-hero">
+        <div class="gauge">
+          <svg width="172" height="172" viewBox="0 0 172 172"><circle cx="86" cy="86" r="78" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="13"/><circle id="gaugeArc" cx="86" cy="86" r="78" fill="none" stroke="var(--amber)" stroke-width="13" stroke-linecap="round" stroke-dashoffset="0"/></svg>
+          <div class="num"><b id="scoreNum">0</b><small>/ 100</small></div>
+        </div>
+        <div>
+          <span class="band" id="bandTag">—</span>
+          <h2 id="bandTitle">—</h2>
+          <p id="bandDesc">—</p>
+        </div>
+      </div>
+      <div id="trendWrap"></div>
+      <div id="aiWrap"></div>
+      <div id="foundWrap"></div>
+      <div class="sub-h">Signal breakdown</div>
+      <div class="bars" id="bars"></div>
+      <div id="refineWrap"></div>
+      <div class="sub-h" id="roadmapHead">Your fix plan — quickest wins first</div>
+      <div id="roadmap"></div>
+      <div class="sub-h">Ready-to-use content for <span id="genName" style="color:var(--ink)">your site</span></div>
+      <div id="genWrap"></div>
+      <div id="kitWrap"></div>
+      <div class="export-row">
+        <button class="btn btn-primary" onclick="window.print()">⤓ Save full report (PDF)</button>
+        <button class="btn btn-ghost" onclick="resetAll()">↻ Audit another site</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap"><b id="brandFoot">AuditRank</b> — AI search visibility audit &amp; fix · Self-hosted, zero-key.</div></footer>
+
+<div id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>
