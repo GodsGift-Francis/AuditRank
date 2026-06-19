@@ -236,6 +236,58 @@ function renderAuthority(r) {
     '<div class="aifoot">A recognized knowledge-graph entity counts toward earned recognition. These are free, public signals, not paid data.</div></div>';
 }
 
+function renderCompare(r) {
+  var el = $('compareWrap'); if (!el) return;
+  if (r.mode !== 'analyzed' || !state.site) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="sub-h">How you stack up <span class="conf-overall">share of AI-readiness</span></div>' +
+    '<div class="cmpcard">' +
+    '<p class="cmp-lede">Add up to three competitor sites. We score each homepage the same way, so you can see who AI is most ready to recommend.</p>' +
+    '<div class="cmp-in"><input type="text" id="cmpUrls" placeholder="competitor1.com, competitor2.com"><button class="btn btn-primary cmp-go" id="cmpGo">Compare</button></div>' +
+    '<div id="cmpResult"></div></div>';
+  var go = $('cmpGo');
+  if (go) go.addEventListener('click', runCompare);
+}
+function runCompare() {
+  var raw = ($('cmpUrls').value || '').trim();
+  var comps = raw.split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 3);
+  if (!comps.length) { toast('Add at least one competitor URL.'); return; }
+  var go = $('cmpGo'); go.disabled = true; go.textContent = 'Scoring…';
+  $('cmpResult').innerHTML = '<p class="cmp-wait">Scoring ' + (comps.length + 1) + ' homepages…</p>';
+  fetch('/api/compare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: state.name || 'You', website: state.site, competitors: comps }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      go.disabled = false; go.textContent = 'Compare';
+      if (!j.ok || !j.ranked || !j.ranked.length) { $('cmpResult').innerHTML = '<p class="cmp-wait">Could not score those sites. Check the URLs and try again.</p>'; return; }
+      var max = Math.max.apply(null, j.ranked.map(function (x) { return x.score || 0; }).concat([1]));
+      var rows = j.ranked.map(function (x, i) {
+        var col = x.you ? 'var(--amber)' : (x.score >= 60 ? 'var(--ok)' : x.score >= 35 ? 'var(--warn)' : 'var(--bad)');
+        var nm = x.you ? (x.name + ' (you)') : x.name;
+        return '<div class="cmp-row' + (x.you ? ' me' : '') + '"><div class="cmp-rank">' + (i + 1) + '</div>' +
+          '<div class="cmp-bar"><div class="cmp-lab"><span>' + esc(nm) + '</span><span class="cmp-sc">' + x.score + '<small>/100</small></span></div>' +
+          '<div class="track"><i style="width:' + Math.round((x.score / max) * 100) + '%;background:' + col + '"></i></div></div></div>';
+      }).join('');
+      var failed = (j.competitors || []).filter(function (c) { return !c.ok; });
+      var note = failed.length ? '<p class="cmp-wait">Could not read: ' + failed.map(function (c) { return esc(c.name); }).join(', ') + '</p>' : '';
+      $('cmpResult').innerHTML = '<div class="cmp-rows">' + rows + '</div>' + note;
+    })
+    .catch(function () { go.disabled = false; go.textContent = 'Compare'; $('cmpResult').innerHTML = '<p class="cmp-wait">Network error.</p>'; });
+}
+
+function renderPrompts(r) {
+  var el = $('promptsWrap'); if (!el) return;
+  if (r.mode !== 'analyzed' || !r.prompts || !r.prompts.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="sub-h">Prompts to test yourself <span class="conf-overall">paste into ChatGPT or Perplexity</span></div>' +
+    '<div class="kit"><p class="kit-lede">Ask these in an AI assistant and see whether it names you. This is the real-world check our paid engine automates.</p>' +
+    '<div class="prompts">' + r.prompts.map(function (p) {
+      return '<div class="prompt-row"><span>' + esc(p) + '</span><button class="kitbtn" onclick="copyPrompt(this)" data-p="' + esc(p) + '">Copy</button></div>';
+    }).join('') + '</div></div>';
+}
+window.copyPrompt = function (btn) {
+  var t = btn.getAttribute('data-p') || '';
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1600); });
+  toast('Prompt copied.');
+};
+
 function renderTrend(r) {
   const tw = $('trendWrap'); if (!tw) return;
   const d = r.delta, hist = r.history || [];
@@ -291,6 +343,8 @@ function renderResults() {
   renderTrend(r);
   renderAi(r);
   renderAuthority(r);
+  renderCompare(r);
+  renderPrompts(r);
 
   // what we detected (with evidence + confidence)
   const fw = $('foundWrap');

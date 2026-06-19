@@ -4,6 +4,36 @@ import { assembleReport } from './score.js';
 import { assessAuthority, applyAuthority } from './authority.js';
 import type { Business, Report } from './types.js';
 
+/** Fast homepage-only score, used for fair side-by-side competitor comparison. */
+export async function quickScore(name: string, website: string): Promise<{ name: string; website: string; ok: boolean; score?: number; band?: string }> {
+  try {
+    const { html, robotsTxt, sitemapXml, llmsTxt, finalUrl, fetchMs } = await fetchSite(website);
+    if (!html) return { name, website, ok: false };
+    const det = analyze(html, normalizeUrl(finalUrl), robotsTxt, sitemapXml, llmsTxt, fetchMs);
+    const r = assembleReport({ name, website }, det, 'analyzed', true);
+    return { name, website, ok: true, score: r.score, band: r.band };
+  } catch { return { name, website, ok: false }; }
+}
+
+/** Suggested buyer-intent prompts to test in AI engines (prompt-intelligence, no-key). */
+export function suggestPrompts(name: string, what: string, city: string): string[] {
+  let cat = (what || '').trim();
+  if (name) cat = cat.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
+  const GENERIC = /^(blog|home|homepage|news|about|contact|welcome|index|page|untitled)$/i;
+  const segs = cat.split(/[|\-–—:·•]+/).map(s => s.trim()).filter(s => s && !GENERIC.test(s));
+  cat = (segs.sort((a, b) => b.length - a.length)[0] || '').replace(/[.!?].*$/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (cat.length < 4) cat = 'this kind of business';
+  const catLc = cat.charAt(0).toLowerCase() + cat.slice(1);
+  const where = city && !new RegExp(city, 'i').test(cat) ? ` in ${city}` : '';
+  return [
+    `What are the best options for ${catLc}${where}?`,
+    `Who are the top providers${where}, and why?`,
+    `Is ${name} a good choice? What do people say about them?`,
+    `Compare ${name} with its main competitors${where}.`,
+    `How much should I expect to pay for ${catLc}${where}?`,
+  ];
+}
+
 export type Emit = (event: string, data: any) => void;
 export type AuditResult = Report & { readError?: boolean; message?: string };
 
@@ -70,6 +100,7 @@ export async function runAudit(business: Business, emit: Emit = () => {}): Promi
   emit('log', { key: 'score', label: 'Scoring', state: 'run' });
   const report = assembleReport(business, best.det, 'analyzed', true) as AuditResult;
   report.authority = authority;
+  report.prompts = suggestPrompts(business.name, best.det.profile.what, best.det.profile.city);
   const thin = best.det.pageType === 'thin' || best.det.pageType === 'search-tool';
   report.scan = {
     pages: scored.map(s => ({ url: s.url, score: s.report.score })),

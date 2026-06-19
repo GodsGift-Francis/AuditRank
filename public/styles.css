@@ -334,3 +334,114 @@ footer b{color:var(--ink);font-family:'Bricolage Grotesque';font-weight:800}
 .ar-find2 li{display:flex;gap:9px;font-size:13px;margin-bottom:7px;color:var(--ink-soft)}
 .ar-find2 li.ok .mk{color:var(--ok)} .ar-find2 li.no .mk{color:var(--bad)} .ar-find2 li.neutral .mk{color:var(--muted)}
 .ar-find2 .ftext{display:block}
+
+/* ============================================================
+   COHESION & POLISH PASS
+   Unify the per-sprint result cards into one friendly, consistent
+   system, add proper keyboard focus, and tidy spacing end to end.
+   ============================================================ */
+
+/* one consistent surface + breathing room for every result card */
+.scancard, .trend, .aicard, .kit {
+  border-radius: var(--r);
+  box-shadow: var(--sh-sm);
+  padding: 20px 22px;
+  transition: transform .18s ease, box-shadow .25s ease, border-color .2s ease;
+}
+/* gentle, uniform lift so the dashboard feels alive but calm */
+.scancard:hover, .trend:hover, .aicard:hover, .kit:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh);
+}
+.fix:hover { box-shadow: var(--sh); }
+
+/* consistent vertical rhythm between the stacked result sections */
+#scanWrap:not(:empty), #trendWrap:not(:empty), #aiWrap:not(:empty),
+#authWrap:not(:empty), #foundWrap:not(:empty), #kitWrap:not(:empty) { display: block; }
+
+/* tighten card heading line-height for a cleaner first line */
+.scan-cap, .aiverdict, .trend .verdict { line-height: 1.18; }
+
+/* accessible, on-brand keyboard focus (was missing) */
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 5px; }
+.btn:focus-visible, .kitbtn:focus-visible, .copy:focus-visible,
+.opts button:focus-visible, .refine button:focus-visible,
+.scan-pg:focus-visible, .advanced summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.field input:focus-visible, .field textarea:focus-visible { outline: none; }
+
+/* extend the same soft entrance to the cards that were added later */
+#scanWrap .scancard, #authWrap .aicard { animation: rise .45s ease both; }
+
+/* mobile: keep the long results page comfortable */
+@media (max-width: 560px) {
+  .panel { padding: 24px 18px; }
+  .scancard, .trend, .aicard, .kit { padding: 16px 16px; }
+  .score-hero h2 { font-size: 22px; }
+  .sub-h { margin: 30px 0 14px; }
+  .bots, .scan-pages, .kit-btns, .opts { gap: 7px; }
+  pre { font-size: 11.5px; }
+}
+
+/* reduced motion covers the new entrances and lifts too */
+@media (prefers-reduced-motion: reduce) {
+  #scanWrap .scancard, #authWrap .aicard { animation: none !important; }
+  .scancard:hover, .trend:hover, .aicard:hover, .kit:hover, .fix:hover { transform: none; }
+}
+
+/* authority card: green accent only when there is a recognized entity */
+#authWrap .aicard:not(.ok) { border-left-color: var(--line-2); }
+#authWrap .aicard:not(.ok) .aiverdict { color: var(--ink); }
+
+/* ---- competitor comparison (share of voice) ---- */
+.cmpcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;box-shadow:var(--sh-sm)}
+.cmp-lede{font-size:13px;color:var(--muted);margin:0 0 14px}
+.cmp-in{display:flex;gap:10px;flex-wrap:wrap}
+.cmp-in input{flex:1;min-width:220px;padding:12px 14px;border:1px solid var(--line-2);border-radius:var(--r-sm);font-size:14px;transition:border .15s,box-shadow .15s}
+.cmp-in input:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 4px rgba(28,32,80,.1)}
+.cmp-go{padding:12px 22px;font-size:14px}
+.cmp-rows{margin-top:18px;display:flex;flex-direction:column;gap:13px}
+.cmp-row{display:flex;align-items:center;gap:13px;animation:fadeUp .4s ease both}
+.cmp-rank{width:26px;height:26px;border-radius:7px;background:var(--paper);border:1px solid var(--line-2);font-family:'JetBrains Mono';font-weight:700;font-size:12px;display:grid;place-items:center;flex:none;color:var(--muted)}
+.cmp-row.me .cmp-rank{background:var(--amber);border-color:var(--amber-deep);color:#231a02}
+.cmp-bar{flex:1}
+.cmp-lab{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:5px}
+.cmp-sc{font-family:'JetBrains Mono';font-weight:700}
+.cmp-sc small{color:var(--muted);font-weight:600;font-size:10px}
+.cmp-wait{font-size:13px;color:var(--muted);margin-top:14px}
+
+/* ---- prompts to test ---- */
+.prompts{display:flex;flex-direction:column;gap:9px}
+.prompt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 14px;font-size:13.5px;color:var(--ink-soft)}
+.prompt-row span{line-height:1.45}
+.prompt-row .kitbtn{flex:none;padding:6px 12px;font-size:12px}
+
+/* ============================================================
+   HIGH-TECH MOTION UPGRADE  (restrained, orchestrated)
+   ============================================================ */
+/* hero: a slow amber aurora drifting behind the headline */
+.hero::before{content:"";position:absolute;z-index:1;top:-12%;right:-4%;width:540px;height:540px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,176,32,.16),transparent 62%);filter:blur(6px);pointer-events:none;
+  animation:aurora 16s ease-in-out infinite alternate}
+@keyframes aurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-46px,34px) scale(1.14)}100%{transform:translate(24px,-22px) scale(.94)}}
+/* the live answer card breathes with a gentle idle float */
+.hero-art{animation:float 6.5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.hero-art:hover{animation-play-state:paused}
+/* CTA: occasional light sweep so the primary action feels alive */
+.btn-signal{position:relative;overflow:hidden}
+.btn-signal::after{content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-18deg);animation:shine 5s ease-in-out infinite}
+@keyframes shine{0%,74%{left:-130%}88%{left:140%}100%{left:140%}}
+/* score gauge: an amber glow that breathes behind the number */
+.score-hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(440px 220px at 16% 34%,rgba(255,176,32,.20),transparent 60%);animation:breathe 7s ease-in-out infinite alternate}
+@keyframes breathe{from{opacity:.45}to{opacity:1}}
+/* live audit theater: a scanning beam sweeps the active step */
+.tstep.run{position:relative;overflow:hidden}
+.tstep.run::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,176,32,.16),transparent);transform:translateX(-100%);animation:scan 1.5s ease-in-out infinite}
+@keyframes scan{to{transform:translateX(100%)}}
+
+@media(prefers-reduced-motion:reduce){
+  .hero::before,.hero-art,.btn-signal::after,.score-hero::before,.tstep.run::after{animation:none!important}
+  .hero-art{transform:none}
+}

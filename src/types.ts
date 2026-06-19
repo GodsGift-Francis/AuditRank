@@ -70,4 +70,5 @@ export interface Report {
   scan?: { pages: { url: string; score: number }[]; representative: string; pageType: string; note?: string };
   authority?: Authority;
   benchmark?: { pageType: string; low: number; high: number; verdict: 'below' | 'within' | 'above' };
+  prompts?: string[];
 }

@@ -1,6 +1,7 @@
 import { analyze, discoverPages } from '../src/analyze.js';
 import { assembleReport, buildKit } from '../src/score.js';
 import { applyAuthority, siteScale } from '../src/authority.js';
+import { suggestPrompts } from '../src/audit.js';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -115,6 +116,14 @@ check('benchmark: strong home page reads above typical', r1.benchmark!.pageType 
 const rThin = assembleReport({ name: 'X', website: 'https://thin.test' }, analyze('<html><head><title>x</title></head><body><h1>Hi</h1><p>We do stuff here.</p></body></html>', 'https://thin.test', null, null, null, 100), 'analyzed', true);
 check('calibration: thin page scores low (<=30)', rThin.score <= 30, `${rThin.score}`);
 check('calibration: thin benchmark band', rThin.benchmark!.pageType === 'thin' && rThin.benchmark!.low === 10, JSON.stringify(rThin.benchmark));
+
+// ---- Fixture 10: prompt intelligence (suggestPrompts) ----
+const prompts = suggestPrompts('Acme Roofing', 'roof repair and installation', 'Accra');
+check('prompts: returns a set to test', prompts.length === 5, `${prompts.length}`);
+check('prompts: include the business name', prompts.some(p => p.includes('Acme Roofing')));
+check('prompts: use the location when known', prompts.some(p => p.includes('Accra')));
+const promptsBare = suggestPrompts('Solo Biz', '', '');
+check('prompts: degrade gracefully with no profile', promptsBare.length === 5 && promptsBare.every(p => p.length > 0));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

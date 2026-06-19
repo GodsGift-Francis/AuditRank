@@ -7,7 +7,7 @@ import { assembleReport, score, starterFAQ, buildSchemas } from './score.js';
 import type { Ans, Business, Report } from './types.js';
 import { saveSnapshot, getHistory, computeDelta, listSites } from './store.js';
 import { rescanDue, startScheduler } from './rescan.js';
-import { runAudit } from './audit.js';
+import { runAudit, quickScore } from './audit.js';
 
 // simple in-memory per-IP rate limit (G2)
 const HITS = new Map<string, number[]>();
@@ -36,7 +36,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.1.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.1.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {
@@ -101,6 +101,25 @@ app.post('/api/score', (req, res) => {
     return res.json({ ok: true, ...out, faq, faqSchema, bizSchema });
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e?.message || 'score failed' });
+  }
+});
+
+/** Competitor comparison / share-of-voice (homepage-only, fair + fast). */
+app.post('/api/compare', async (req, res) => {
+  try {
+    if (rateLimited(clientIp(req), 12)) return res.status(429).json({ ok: false, error: 'Too many comparisons, please wait a minute.' });
+    const name = String(req.body?.name || 'You').trim();
+    const website = String(req.body?.website || '').trim();
+    if (!website) return res.status(400).json({ ok: false, error: 'Your website is required.' });
+    const urls: string[] = Array.isArray(req.body?.competitors) ? req.body.competitors.map((u: any) => String(u).trim()).filter(Boolean).slice(0, 3) : [];
+    const label = (u: string) => { try { return new URL(u.startsWith('http') ? u : 'https://' + u).hostname.replace(/^www\./, ''); } catch { return u; } };
+    const you = await quickScore(name, website);
+    const competitors = [];
+    for (const u of urls) competitors.push(await quickScore(label(u), u));
+    const ranked = [{ ...you, you: true }, ...competitors.map(c => ({ ...c, you: false }))].filter(x => x.ok).sort((a, b) => (b.score || 0) - (a.score || 0));
+    return res.json({ ok: true, you, competitors, ranked });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: 'Comparison failed: ' + (e?.message || 'unknown') });
   }
 });
 
