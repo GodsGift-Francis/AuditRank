@@ -2,6 +2,8 @@ import { analyze, discoverPages } from '../src/analyze.js';
 import { assembleReport, buildKit } from '../src/score.js';
 import { applyAuthority, siteScale } from '../src/authority.js';
 import { suggestPrompts } from '../src/audit.js';
+import { buildShareCard, buildSharePage } from '../src/share.js';
+import { saveSharedReport, getSharedReport } from '../src/store.js';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -124,6 +126,16 @@ check('prompts: include the business name', prompts.some(p => p.includes('Acme R
 check('prompts: use the location when known', prompts.some(p => p.includes('Accra')));
 const promptsBare = suggestPrompts('Solo Biz', '', '');
 check('prompts: degrade gracefully with no profile', promptsBare.length === 5 && promptsBare.every(p => p.length > 0));
+
+// ---- Fixture 11: shareable report (V3) ----
+const shareRep = assembleReport({ name: 'Acme Co', website: 'https://acme.test' }, d1, 'analyzed', true);
+const card = buildShareCard(shareRep);
+check('share card: svg with the score', card.startsWith('<svg') && card.includes('</svg>') && card.includes('>' + shareRep.score + '</text>'), `score ${shareRep.score}`);
+const page = buildSharePage('abc123', shareRep, 'https://x.test');
+check('share page: has OG image, title and business name', page.includes('property="og:image"') && page.includes('property="og:title"') && page.includes('Acme Co'));
+const sid = saveSharedReport(shareRep);
+check('share store: round-trips by id', !!getSharedReport(sid) && getSharedReport(sid).score === shareRep.score);
+check('share store: rejects path-like ids', getSharedReport('../secret') === null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

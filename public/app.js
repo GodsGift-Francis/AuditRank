@@ -326,6 +326,30 @@ function sparkline(hist) {
 }
 
 /* ---- render ---- */
+window.shareReport = function (btn) {
+  if (!state.report || typeof state.report.score !== 'number') { toast('Run an audit first.'); return; }
+  btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Creating link…';
+  fetch('/api/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ report: state.report }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      btn.disabled = false; btn.textContent = orig;
+      if (!j.ok || !j.url) { toast('Could not create link.'); return; }
+      var w = $('shareWrap');
+      w.innerHTML = '<div class="sharebox"><div class="sharebox-h">Your shareable report is live</div>' +
+        '<div class="share-row"><input id="shareUrl" readonly value="' + esc(j.url) + '"><button class="btn btn-primary" onclick="copyShare()">Copy</button>' +
+        '<a class="btn btn-ghost" href="' + esc(j.url) + '" target="_blank" rel="noopener">Open</a></div>' +
+        '<p class="share-note">Anyone with this link can view the score, band and top fixes. Pasting it into Slack, X or LinkedIn shows a preview card.</p></div>';
+      w.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    })
+    .catch(function () { btn.disabled = false; btn.textContent = orig; toast('Network error.'); });
+};
+window.copyShare = function () {
+  var i = $('shareUrl'); if (!i) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(i.value);
+  else { i.select(); try { document.execCommand('copy'); } catch (e) {} }
+  toast('Link copied.');
+};
+
 function renderResults() {
   const r = state.report, s = r.score;
   const colors = { Cited: ['#1FA971', '#E6F7EF'], Visible: ['#1FA971', '#E6F7EF'], Emerging: ['#E8920A', '#FDF2E2'], Invisible: ['#E5484D', '#FDECEC'] };

@@ -60,6 +60,27 @@ export function listSites(): { key: string; name: string; website: string; lates
 
 export function allSiteRecords(): SiteRecord[] { return Object.values(load()); }
 
+// --- shareable reports (V3): persist a full report under a short id ---
+const SHARE_FILE = resolve(DATA_DIR, 'shared.json');
+type ShareDB = Record<string, { at: string; report: any }>;
+function loadShares(): ShareDB { try { if (existsSync(SHARE_FILE)) return JSON.parse(readFileSync(SHARE_FILE, 'utf8')) as ShareDB; } catch { /* ignore */ } return {}; }
+function persistShares(db: ShareDB) { mkdirSync(DATA_DIR, { recursive: true }); writeFileSync(SHARE_FILE, JSON.stringify(db)); }
+
+export function saveSharedReport(report: any): string {
+  const db = loadShares();
+  let id = Math.random().toString(36).slice(2, 10);
+  while (db[id]) id = Math.random().toString(36).slice(2, 10);
+  db[id] = { at: new Date().toISOString(), report };
+  const ids = Object.keys(db);
+  if (ids.length > 500) { ids.sort((a, b) => (db[a].at < db[b].at ? -1 : 1)); for (const k of ids.slice(0, ids.length - 500)) delete db[k]; }
+  persistShares(db);
+  return id;
+}
+export function getSharedReport(id: string): any | null {
+  if (!/^[a-z0-9]{4,16}$/i.test(id)) return null;
+  return loadShares()[id]?.report || null;
+}
+
 /** Compare the two most recent snapshots into a plain winning/losing verdict. */
 export function computeDelta(snaps: Snapshot[]): { score: number; verdict: 'Winning' | 'Slipping' | 'Holding' | 'First audit'; since: string; movers: { id: string; change: number }[] } | null {
   if (!snaps.length) return null;

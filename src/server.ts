@@ -5,9 +5,10 @@ import { fetchSite, normalizeUrl } from './fetchSite.js';
 import { analyze } from './analyze.js';
 import { assembleReport, score, starterFAQ, buildSchemas } from './score.js';
 import type { Ans, Business, Report } from './types.js';
-import { saveSnapshot, getHistory, computeDelta, listSites } from './store.js';
+import { saveSnapshot, getHistory, computeDelta, listSites, saveSharedReport, getSharedReport } from './store.js';
 import { rescanDue, startScheduler } from './rescan.js';
 import { runAudit, quickScore } from './audit.js';
+import { buildShareCard, buildSharePage } from './share.js';
 
 // simple in-memory per-IP rate limit (G2)
 const HITS = new Map<string, number[]>();
@@ -36,7 +37,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.1.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.2.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {
@@ -144,6 +145,62 @@ app.post('/api/cron/rescan', async (req, res) => {
 });
 
 /** Minimal tracked-sites dashboard (no accounts). */
+function reqOrigin(req: any): string {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+/** Create a shareable link for a completed report. */
+app.post('/api/share', (req, res) => {
+  try {
+    const report = req.body?.report;
+    if (!report || typeof report.score !== 'number') return res.status(400).json({ ok: false, error: 'A completed report is required.' });
+    const id = saveSharedReport(report);
+    return res.json({ ok: true, id, url: `${reqOrigin(req)}/r/${id}` });
+  } catch { return res.status(500).json({ ok: false, error: 'Could not create share link.' }); }
+});
+
+app.get('/api/shared/:id', (req, res) => {
+  const r = getSharedReport(req.params.id);
+  if (!r) return res.status(404).json({ ok: false, error: 'not found' });
+  return res.json({ ok: true, report: r });
+});
+
+/** Branded SVG social card (zero-dependency). */
+app.get('/r/:id/card.svg', (req, res) => {
+  const r = getSharedReport(req.params.id);
+  if (!r) return res.status(404).send('not found');
+  res.setHeader('content-type', 'image/svg+xml; charset=utf-8');
+  res.setHeader('cache-control', 'public, max-age=86400');
+  return res.send(buildShareCard(r));
+});
+
+/** PNG version for OG unfurl. Uses @resvg/resvg-js if present, else falls back to SVG. */
+app.get('/r/:id/card.png', async (req, res) => {
+  const r = getSharedReport(req.params.id);
+  if (!r) return res.status(404).send('not found');
+  const svg = buildShareCard(r);
+  try {
+    const { Resvg } = await import('@resvg/resvg-js');
+    const png = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
+    res.setHeader('content-type', 'image/png');
+    res.setHeader('cache-control', 'public, max-age=86400');
+    return res.send(png);
+  } catch {
+    res.setHeader('content-type', 'image/svg+xml; charset=utf-8');
+    return res.send(svg);
+  }
+});
+
+/** Public, crawlable report page. */
+app.get('/r/:id', (req, res) => {
+  const r = getSharedReport(req.params.id);
+  if (!r) return res.status(404).type('html').send('<h1 style="font-family:sans-serif;padding:40px">Report not found</h1><p style="font-family:sans-serif;padding:0 40px">This share link has expired or never existed.</p>');
+  res.setHeader('content-type', 'text/html; charset=utf-8');
+  return res.send(buildSharePage(req.params.id, r, reqOrigin(req)));
+});
+
 app.get('/dashboard', (_req, res) => res.sendFile(resolve(__dirname, '../public/dashboard.html')));
 
 const PORT = parseInt(process.env.PORT || '3000', 10);

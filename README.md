@@ -267,3 +267,21 @@ Net effect on the original concern: a real business is judged across multiple pa
 the score means, and shown against a peer benchmark. A site like google.com may still
 score low because its pages are tools rather than citable content, which is correct,
 but the result is now representative and clearly explained rather than misleading.
+
+---
+
+## Sprint: shareable report (V3)
+
+Every completed audit can now become a public link. "Create shareable link" saves the
+report and returns a URL like `/r/<id>` that anyone can open. The page is a clean,
+self-contained, crawlable summary (score gauge, band, headline, top fixes, and a
+"run your own audit" call to action) with full Open Graph and Twitter card meta, so
+pasting the link into Slack, X, or LinkedIn shows a branded preview.
+
+The preview image is a 1200x630 card at `/r/<id>/card.png`, generated from a
+zero-dependency SVG. PNG rendering uses `@resvg/resvg-js` when available (listed as an
+optional dependency with prebuilt binaries); if it is not installed, the endpoint
+serves the SVG instead, so the feature degrades gracefully and never blocks install.
+
+This turns each audit into a low-friction growth loop: a prospect runs a free check,
+shares the result, and the card carries the AuditRank brand and a link back to the tool.
