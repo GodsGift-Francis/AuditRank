@@ -1,59 +1,59 @@
 import { fetchSite, normalizeUrl } from './fetchSite.js';
 import { analyze } from './analyze.js';
 import { assembleReport } from './score.js';
-import { allSiteRecords, saveSnapshot, getHistory, computeDelta } from './store.js';
+import { saveSnapshot, getHistory, listMonitors, markMonitorRun } from './store.js';
+import { notify } from './alerts.js';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const CADENCE_MS: Record<string, number> = {
+  daily: 24 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+  monthly: 30 * 24 * 60 * 60 * 1000,
+};
 
-/** Fire an alert webhook (A1) when a re-scan moves the score meaningfully. */
-async function alert(website: string, name: string): Promise<void> {
-  const url = process.env.ALERT_WEBHOOK;
-  if (!url) return;
-  const d = computeDelta(getHistory(website));
-  if (!d || d.verdict === 'First audit' || d.verdict === 'Holding') return;
-  try {
-    await fetch(url, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: `AuditRank: ${name} is ${d.verdict} (${d.score > 0 ? '+' : ''}${d.score} pts) — ${website}`, website, name, verdict: d.verdict, delta: d.score }),
-    });
-  } catch { /* alerts are best-effort */ }
-}
-
-/** Re-audit one site server-side and store a fresh snapshot. */
+/** Re-audit one site server-side and store a fresh snapshot (no alerting here). */
 export async function rescanSite(name: string, website: string): Promise<{ ok: boolean; score?: number }> {
   try {
-    const { html, robotsTxt, sitemapXml, finalUrl } = await fetchSite(website);
+    const { html, robotsTxt, sitemapXml, llmsTxt, finalUrl, fetchMs } = await fetchSite(website);
     if (!html) return { ok: false };
-    const detection = analyze(html, normalizeUrl(finalUrl), robotsTxt, sitemapXml);
+    const detection = analyze(html, normalizeUrl(finalUrl), robotsTxt, sitemapXml, llmsTxt, fetchMs);
     const r = assembleReport({ name, website }, detection, 'analyzed', true);
     const signals: Record<string, number> = {};
     r.signals.forEach(s => { signals[s.id] = s.score; });
     saveSnapshot(name, website, r.score, r.band, signals);
-    await alert(website, name);
     return { ok: true, score: r.score };
   } catch { return { ok: false }; }
 }
 
-/** Re-scan every tracked site whose latest snapshot is older than a week. */
-export async function rescanDue(): Promise<{ scanned: number; due: number }> {
-  const recs = allSiteRecords();
-  let scanned = 0, due = 0;
-  for (const rec of recs) {
-    const last = rec.snapshots[rec.snapshots.length - 1];
-    if (!last || Date.now() - new Date(last.at).getTime() >= WEEK_MS) {
-      due++;
-      const res = await rescanSite(rec.name, rec.website);
-      if (res.ok) scanned++;
-    }
+/** Re-scan every enabled monitor that is due per its cadence, then alert on drops. */
+export async function rescanDue(): Promise<{ scanned: number; due: number; alerted: number }> {
+  const monitors = listMonitors().filter(m => m.enabled);
+  let scanned = 0, due = 0, alerted = 0;
+  for (const m of monitors) {
+    const last = m.lastRunAt ? new Date(m.lastRunAt).getTime() : 0;
+    const interval = CADENCE_MS[m.cadence] || CADENCE_MS.weekly;
+    if (Date.now() - last < interval) continue;
+    due++;
+    const prevHist = getHistory(m.website);
+    const prevScore = prevHist.length ? prevHist[prevHist.length - 1].score : null;
+    const res = await rescanSite(m.name, m.website);
+    if (!res.ok) { markMonitorRun(m.website, false); continue; }
+    scanned++;
+    const hist = getHistory(m.website);
+    const cur = hist[hist.length - 1];
+    const n = await notify(m, prevScore, cur);
+    if (n.alerted) alerted++;
+    markMonitorRun(m.website, n.alerted, cur.score);
   }
-  return { scanned, due };
+  return { scanned, due, alerted };
 }
 
-/** Internal scheduler for always-on hosts (VPS, container that doesn't sleep).
- *  On Cloud Run (scales to zero) use POST /api/cron/rescan via Cloud Scheduler instead. */
+/** Internal scheduler for always-on hosts. On scale-to-zero hosts (Cloud Run),
+ *  call POST /api/cron/rescan from Cloud Scheduler instead. */
 export function startScheduler() {
   const everyHours = 6;
-  setInterval(() => { rescanDue().then(r => { if (r.scanned) console.log(`  [scheduler] re-scanned ${r.scanned}/${r.due} due sites`); }).catch(() => {}); }, everyHours * 60 * 60 * 1000);
+  setInterval(() => {
+    rescanDue().then(r => { if (r.scanned) console.log(`  [scheduler] re-scanned ${r.scanned}/${r.due} due, ${r.alerted} alerts sent`); }).catch(() => {});
+  }, everyHours * 60 * 60 * 1000);
 }
 
 export { getHistory };

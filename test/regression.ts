@@ -3,7 +3,8 @@ import { assembleReport, buildKit } from '../src/score.js';
 import { applyAuthority, siteScale } from '../src/authority.js';
 import { suggestPrompts } from '../src/audit.js';
 import { buildShareCard, buildSharePage } from '../src/share.js';
-import { saveSharedReport, getSharedReport } from '../src/store.js';
+import { saveSharedReport, getSharedReport, upsertMonitor, getMonitor, stopMonitor } from '../src/store.js';
+import { shouldAlert, buildAlertText, isSafeWebhook } from '../src/alerts.js';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -136,6 +137,21 @@ check('share page: has OG image, title and business name', page.includes('proper
 const sid = saveSharedReport(shareRep);
 check('share store: round-trips by id', !!getSharedReport(sid) && getSharedReport(sid).score === shareRep.score);
 check('share store: rejects path-like ids', getSharedReport('../secret') === null);
+
+// ---- Fixture 12: monitoring + alerts ----
+check('alert: a real drop fires', shouldAlert(60, 50).fire === true && shouldAlert(60, 50).kind === 'drop');
+check('alert: noise below threshold stays quiet', shouldAlert(60, 58).fire === false);
+check('alert: gains suppressed by default', shouldAlert(50, 60).fire === false);
+check('alert: gains fire when opted in', shouldAlert(50, 60, { notifyGains: true }).kind === 'gain');
+check('alert: first run (no prev) does not fire', shouldAlert(null, 50).fire === false);
+check('alert: text carries name + score', /Acme/.test(buildAlertText({ website: 'x.com', name: 'Acme', score: 50, prevScore: 60, delta: -10, kind: 'drop', at: '' })));
+check('webhook guard: blocks localhost', isSafeWebhook('http://localhost/x') === false);
+check('webhook guard: blocks metadata IP', isSafeWebhook('http://169.254.169.254/') === false);
+check('webhook guard: blocks private 10.x', isSafeWebhook('https://10.0.0.5/hook') === false);
+check('webhook guard: allows public https', isSafeWebhook('https://hooks.slack.com/services/x') === true);
+const mon = upsertMonitor({ website: 'https://watch.test', name: 'Watch Co', cadence: 'daily', webhook: 'https://hooks.slack.com/x' });
+check('monitor: upsert + get by site', getMonitor('https://watch.test')?.cadence === 'daily' && mon.enabled === true);
+check('monitor: stop disables it', stopMonitor('https://watch.test') === true && getMonitor('https://watch.test')?.enabled === false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

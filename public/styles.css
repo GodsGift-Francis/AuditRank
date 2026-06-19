@@ -453,3 +453,15 @@ footer b{color:var(--ink);font-family:'Bricolage Grotesque';font-weight:800}
 .share-row input{flex:1;min-width:240px;padding:12px 14px;border:1px solid var(--line-2);border-radius:var(--r-sm);font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-soft);background:#fff}
 .share-row .btn{padding:12px 20px;font-size:14px}
 .share-note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+
+/* ---- keep watch / monitoring ---- */
+.watchcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;box-shadow:var(--sh-sm)}
+.watch-grid{display:grid;grid-template-columns:160px 1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:640px){.watch-grid{grid-template-columns:1fr}}
+.watch-grid label{display:flex;flex-direction:column;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+.watch-grid select,.watch-grid input{padding:11px 13px;border:1px solid var(--line-2);border-radius:var(--r-sm);font-size:14px;font-family:'Inter',sans-serif;background:#fff;color:var(--ink)}
+.watch-grid select:focus,.watch-grid input:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 4px rgba(28,32,80,.1)}
+.watch-btns{display:flex;gap:10px;flex-wrap:wrap}
+.watch-btns .btn{padding:11px 20px;font-size:14px}
+.watch-msg{font-size:13px;margin-top:12px;line-height:1.5;min-height:1px}
+.watch-msg.ok{color:var(--ok)} .watch-msg.err{color:var(--bad)}

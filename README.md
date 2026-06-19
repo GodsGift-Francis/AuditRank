@@ -285,3 +285,28 @@ serves the SVG instead, so the feature degrades gracefully and never blocks inst
 
 This turns each audit into a low-friction growth loop: a prospect runs a free check,
 shares the result, and the card carries the AuditRank brand and a link back to the tool.
+
+---
+
+## Sprint: scheduled re-scans + drop alerts
+
+Monitoring is now a real feature, not just a weekly sweep. From any audit, "Keep watch"
+lets you subscribe the site at a daily, weekly, or monthly cadence and pick where alerts
+go. The scheduler re-audits each monitored site when it is due and sends an alert only
+when the score drops by a meaningful margin (default 3 points), so you hear about
+problems, not noise.
+
+Alert channels:
+- Webhook (no key): posts a Slack/Discord/Pabbly/Zapier-compatible JSON payload. User
+  supplied URLs are checked against an SSRF guard that blocks localhost, private ranges,
+  and cloud metadata IPs.
+- Email (optional): sent via SMTP using nodemailer when SMTP_HOST and a from address are
+  set in the environment; skipped cleanly if not configured, so it never blocks install.
+
+A "Send test alert" button delivers a sample message immediately so delivery can be
+confirmed. Endpoints: POST /api/monitor, POST /api/monitor/stop, GET /api/monitors
+(secrets masked), POST /api/monitor/test. On always-on hosts the internal scheduler runs
+every six hours; on scale-to-zero hosts, call POST /api/cron/rescan from a scheduler.
+
+Env vars for email: SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS,
+SMTP_SECURE (true/false), ALERT_FROM. Optional global fallback webhook: ALERT_WEBHOOK.

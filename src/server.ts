@@ -5,10 +5,11 @@ import { fetchSite, normalizeUrl } from './fetchSite.js';
 import { analyze } from './analyze.js';
 import { assembleReport, score, starterFAQ, buildSchemas } from './score.js';
 import type { Ans, Business, Report } from './types.js';
-import { saveSnapshot, getHistory, computeDelta, listSites, saveSharedReport, getSharedReport } from './store.js';
+import { saveSnapshot, getHistory, computeDelta, listSites, saveSharedReport, getSharedReport, upsertMonitor, getMonitor, listMonitors, stopMonitor } from './store.js';
 import { rescanDue, startScheduler } from './rescan.js';
 import { runAudit, quickScore } from './audit.js';
 import { buildShareCard, buildSharePage } from './share.js';
+import { sendWebhook, sendEmail, isSafeWebhook, type AlertPayload } from './alerts.js';
 
 // simple in-memory per-IP rate limit (G2)
 const HITS = new Map<string, number[]>();
@@ -37,7 +38,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.2.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.3.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report', 'scheduled-rescan', 'drop-alerts'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {
@@ -199,6 +200,53 @@ app.get('/r/:id', (req, res) => {
   if (!r) return res.status(404).type('html').send('<h1 style="font-family:sans-serif;padding:40px">Report not found</h1><p style="font-family:sans-serif;padding:0 40px">This share link has expired or never existed.</p>');
   res.setHeader('content-type', 'text/html; charset=utf-8');
   return res.send(buildSharePage(req.params.id, r, reqOrigin(req)));
+});
+
+/** Subscribe a site to scheduled re-scans + drop alerts. */
+app.post('/api/monitor', (req, res) => {
+  try {
+    const website = String(req.body?.website || '').trim();
+    if (!website) return res.status(400).json({ ok: false, error: 'website required' });
+    const cadence = ['daily', 'weekly', 'monthly'].includes(req.body?.cadence) ? req.body.cadence : 'weekly';
+    const webhook = req.body?.webhook ? String(req.body.webhook).trim() : undefined;
+    const email = req.body?.email ? String(req.body.email).trim() : undefined;
+    if (webhook && !isSafeWebhook(webhook)) return res.status(400).json({ ok: false, error: 'That webhook URL is not allowed (must be a public http/https endpoint).' });
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ ok: false, error: 'That email address looks invalid.' });
+    if (!webhook && !email && !process.env.ALERT_WEBHOOK) return res.status(400).json({ ok: false, error: 'Add a webhook URL or email so we have somewhere to send alerts.' });
+    const m = upsertMonitor({ website, name: String(req.body?.name || '').trim() || undefined, cadence, webhook, email });
+    return res.json({ ok: true, monitor: { website: m.website, name: m.name, cadence: m.cadence, hasWebhook: !!m.webhook, hasEmail: !!m.email, enabled: m.enabled } });
+  } catch { return res.status(500).json({ ok: false, error: 'Could not save monitor.' }); }
+});
+
+app.post('/api/monitor/stop', (req, res) => {
+  const ok = stopMonitor(String(req.body?.website || ''));
+  return res.json({ ok });
+});
+
+function maskWebhook(u?: string): string | null { if (!u) return null; try { return new URL(u).host; } catch { return 'set'; } }
+function maskEmail(e?: string): string | null { if (!e) return null; return e.replace(/^(.).*(@.*)$/, '$1***$2'); }
+
+app.get('/api/monitors', (_req, res) => {
+  const list = listMonitors().map(m => ({ website: m.website, name: m.name, cadence: m.cadence, enabled: m.enabled, webhook: maskWebhook(m.webhook), email: maskEmail(m.email), lastRunAt: m.lastRunAt || null, lastAlertAt: m.lastAlertAt || null }));
+  return res.json({ ok: true, monitors: list });
+});
+
+/** Send a sample alert now so the user can confirm delivery. */
+app.post('/api/monitor/test', async (req, res) => {
+  try {
+    const website = String(req.body?.website || '').trim();
+    const existing = website ? getMonitor(website) : null;
+    const webhook = (req.body?.webhook ? String(req.body.webhook).trim() : '') || existing?.webhook || process.env.ALERT_WEBHOOK || '';
+    const email = (req.body?.email ? String(req.body.email).trim() : '') || existing?.email || '';
+    if (!webhook && !email) return res.status(400).json({ ok: false, error: 'Add a webhook or email to test.' });
+    const hist = website ? getHistory(website) : [];
+    const score = hist.length ? hist[hist.length - 1].score : 50;
+    const payload: AlertPayload = { website: website || 'example.com', name: existing?.name || 'Your site', score, prevScore: score + 6, delta: -6, kind: 'drop', band: hist.length ? hist[hist.length - 1].band : 'Emerging', at: new Date().toISOString() };
+    const channels: string[] = [];
+    if (webhook && await sendWebhook(webhook, payload)) channels.push('webhook');
+    if (email && await sendEmail(email, payload)) channels.push('email');
+    return res.json({ ok: channels.length > 0, channels, note: channels.length ? undefined : 'Nothing delivered. Check the webhook URL, or note that email needs SMTP env vars on the server.' });
+  } catch { return res.status(500).json({ ok: false, error: 'Test failed.' }); }
 });
 
 app.get('/dashboard', (_req, res) => res.sendFile(resolve(__dirname, '../public/dashboard.html')));

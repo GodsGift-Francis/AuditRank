@@ -350,6 +350,44 @@ window.copyShare = function () {
   toast('Link copied.');
 };
 
+function renderWatch(r) {
+  var el = $('watchWrap'); if (!el) return;
+  if (r.mode !== 'analyzed' || !state.site) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="sub-h">Keep watch <span class="conf-overall">get alerted if your score drops</span></div>' +
+    '<div class="watchcard">' +
+    '<p class="cmp-lede">We re-audit this site on a schedule and message you if the score slips. Webhook works with Slack, Discord, Pabbly or Zapier; email needs SMTP set on your server.</p>' +
+    '<div class="watch-grid">' +
+    '<label>Re-scan<select id="wCad"><option value="daily">Daily</option><option value="weekly" selected>Weekly</option><option value="monthly">Monthly</option></select></label>' +
+    '<label>Webhook URL<input id="wHook" type="text" placeholder="https://hooks.slack.com/..."></label>' +
+    '<label>Email<input id="wMail" type="email" placeholder="you@example.com"></label>' +
+    '</div>' +
+    '<div class="watch-btns"><button class="btn btn-primary" id="wSub" onclick="subscribeWatch()">Start watching</button>' +
+    '<button class="btn btn-ghost" id="wTest" onclick="testWatch()">Send test alert</button></div>' +
+    '<div id="wMsg" class="watch-msg"></div></div>';
+}
+function watchPayload() {
+  return { website: state.site, name: state.name || undefined, cadence: ($('wCad') || {}).value || 'weekly', webhook: ($('wHook') || {}).value || '', email: ($('wMail') || {}).value || '' };
+}
+window.subscribeWatch = function () {
+  var b = $('wSub'); b.disabled = true; var o = b.textContent; b.textContent = 'Saving…';
+  fetch('/api/monitor', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(watchPayload()) })
+    .then(function (r) { return r.json(); }).then(function (j) {
+      b.disabled = false; b.textContent = o;
+      var m = $('wMsg');
+      if (!j.ok) { m.className = 'watch-msg err'; m.textContent = j.error || 'Could not start watching.'; return; }
+      m.className = 'watch-msg ok'; m.textContent = 'Watching ' + j.monitor.cadence + '. We will alert ' + [j.monitor.hasWebhook ? 'your webhook' : '', j.monitor.hasEmail ? 'your email' : ''].filter(Boolean).join(' and ') + ' if the score drops.';
+    }).catch(function () { b.disabled = false; b.textContent = o; $('wMsg').className = 'watch-msg err'; $('wMsg').textContent = 'Network error.'; });
+};
+window.testWatch = function () {
+  var b = $('wTest'); b.disabled = true; var o = b.textContent; b.textContent = 'Sending…';
+  fetch('/api/monitor/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(watchPayload()) })
+    .then(function (r) { return r.json(); }).then(function (j) {
+      b.disabled = false; b.textContent = o; var m = $('wMsg');
+      if (j.ok) { m.className = 'watch-msg ok'; m.textContent = 'Test alert sent via ' + j.channels.join(' and ') + '. Check it arrived.'; }
+      else { m.className = 'watch-msg err'; m.textContent = j.note || j.error || 'Nothing delivered.'; }
+    }).catch(function () { b.disabled = false; b.textContent = o; $('wMsg').className = 'watch-msg err'; $('wMsg').textContent = 'Network error.'; });
+};
+
 function renderResults() {
   const r = state.report, s = r.score;
   const colors = { Cited: ['#1FA971', '#E6F7EF'], Visible: ['#1FA971', '#E6F7EF'], Emerging: ['#E8920A', '#FDF2E2'], Invisible: ['#E5484D', '#FDECEC'] };
@@ -369,6 +407,7 @@ function renderResults() {
   renderAuthority(r);
   renderCompare(r);
   renderPrompts(r);
+  renderWatch(r);
 
   // what we detected (with evidence + confidence)
   const fw = $('foundWrap');

@@ -81,6 +81,46 @@ export function getSharedReport(id: string): any | null {
   return loadShares()[id]?.report || null;
 }
 
+// --- monitoring: per-site re-scan schedule + alert destinations ---
+const MON_FILE = resolve(DATA_DIR, 'monitors.json');
+export interface Monitor {
+  key: string; website: string; name: string;
+  cadence: 'daily' | 'weekly' | 'monthly';
+  webhook?: string; email?: string;
+  enabled: boolean; createdAt: string;
+  lastRunAt?: string; lastAlertAt?: string; lastAlertScore?: number;
+}
+type MonDB = Record<string, Monitor>;
+function loadMonitors(): MonDB { try { if (existsSync(MON_FILE)) return JSON.parse(readFileSync(MON_FILE, 'utf8')) as MonDB; } catch { /* ignore */ } return {}; }
+function persistMonitors(db: MonDB) { mkdirSync(DATA_DIR, { recursive: true }); writeFileSync(MON_FILE, JSON.stringify(db, null, 2)); }
+
+export function upsertMonitor(input: { website: string; name?: string; cadence?: Monitor['cadence']; webhook?: string; email?: string }): Monitor {
+  const db = loadMonitors();
+  const key = siteKey(input.website);
+  const prev = db[key];
+  const m: Monitor = {
+    key, website: input.website, name: input.name || prev?.name || key,
+    cadence: input.cadence || prev?.cadence || 'weekly',
+    webhook: input.webhook !== undefined ? input.webhook : prev?.webhook,
+    email: input.email !== undefined ? input.email : prev?.email,
+    enabled: true, createdAt: prev?.createdAt || new Date().toISOString(),
+    lastRunAt: prev?.lastRunAt, lastAlertAt: prev?.lastAlertAt, lastAlertScore: prev?.lastAlertScore,
+  };
+  db[key] = m; persistMonitors(db); return m;
+}
+export function getMonitor(website: string): Monitor | null { return loadMonitors()[siteKey(website)] || null; }
+export function listMonitors(): Monitor[] { return Object.values(loadMonitors()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)); }
+export function stopMonitor(website: string): boolean {
+  const db = loadMonitors(); const key = siteKey(website);
+  if (!db[key]) return false; db[key].enabled = false; persistMonitors(db); return true;
+}
+export function markMonitorRun(website: string, alerted: boolean, score?: number) {
+  const db = loadMonitors(); const key = siteKey(website); const m = db[key];
+  if (!m) return; m.lastRunAt = new Date().toISOString();
+  if (alerted) { m.lastAlertAt = m.lastRunAt; if (typeof score === 'number') m.lastAlertScore = score; }
+  persistMonitors(db);
+}
+
 /** Compare the two most recent snapshots into a plain winning/losing verdict. */
 export function computeDelta(snaps: Snapshot[]): { score: number; verdict: 'Winning' | 'Slipping' | 'Holding' | 'First audit'; since: string; movers: { id: string; change: number }[] } | null {
   if (!snaps.length) return null;
