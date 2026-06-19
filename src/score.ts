@@ -102,11 +102,15 @@ export function assembleReport(business: Business, detection: Detection | null, 
   const faq = starterFAQ(business);
   const { faqSchema, bizSchema } = buildSchemas(business, detection?.profile || { what: '', city: '', country: '' }, faq);
   const kit = buildKit(business, detection?.profile || { what: '', city: '', country: '' }, faq);
+  const BENCH: Record<string, [number, number]> = { 'search-tool': [5, 25], thin: [10, 30], home: [30, 55], product: [35, 60], article: [40, 65] };
+  const pt = detection?.pageType || 'home';
+  const band = BENCH[pt] || BENCH.home;
+  const benchmark = { pageType: pt, low: band[0], high: band[1], verdict: (sc.score < band[0] ? 'below' : sc.score > band[1] ? 'above' : 'within') as 'below' | 'within' | 'above' };
   return {
     ok: true, mode, read, business,
     score: sc.score, band: sc.band, headline: sc.headline, summary: sc.summary,
     signals: sc.signals, answers, unverified,
-    findings: detection?.findings || [], fixes: sc.fixes, faq, faqSchema, bizSchema, kit,
+    findings: detection?.findings || [], fixes: sc.fixes, faq, faqSchema, bizSchema, kit, benchmark,
     aiAccess: detection?.aiAccess, confidence: detection?.confidence,
   };
 }

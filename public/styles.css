@@ -314,3 +314,23 @@ footer b{color:var(--ink);font-family:'Bricolage Grotesque';font-weight:800}
   #aiWrap .aicard,#trendWrap .trend,#kitWrap .kit,#foundWrap .foundcard,#bars .barrow{opacity:1 !important;transform:none !important}
   .tstep{opacity:1 !important}
 }
+
+/* ---- multi-page scan + framing (Sprint 1 + 2) ---- */
+.scancard{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh-sm)}
+.scan-cap{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;color:var(--ink)}
+.scan-cap .scan-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;font-size:12px;color:var(--muted);margin-top:2px}
+.scan-line{font-size:13.5px;color:var(--ink-soft);margin-top:10px}
+.scan-pages{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.scan-pg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+.scan-pg.rep{background:#FFF6E6;border-color:var(--amber-soft);color:var(--amber-deep)}
+.scan-pg b{color:var(--ink)}
+.scan-note{margin-top:12px;font-size:13px;line-height:1.55;color:var(--ink-soft);background:#FFF6E6;border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:11px 14px}
+
+/* ---- benchmark + authority (Sprint 3 + 4) ---- */
+.scan-bench{margin-top:11px;font-size:13px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 13px}
+.scan-bench.win{background:#E6F7EF;border-color:#CDEBD9}
+.scan-bench.lose{background:#FDECEC;border-color:#F3C9CB}
+.ar-find2{list-style:none;margin:4px 0 12px;padding:0}
+.ar-find2 li{display:flex;gap:9px;font-size:13px;margin-bottom:7px;color:var(--ink-soft)}
+.ar-find2 li.ok .mk{color:var(--ok)} .ar-find2 li.no .mk{color:var(--bad)} .ar-find2 li.neutral .mk{color:var(--muted)}
+.ar-find2 .ftext{display:block}

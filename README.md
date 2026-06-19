@@ -218,3 +218,52 @@ inside a job.
 G3 multi-region + CDN, G4 internationalization, V3 shareable OG report image,
 V4 advanced data-viz, F3 entity presence via Wikidata (needs outbound network),
 F4 site-wide multi-page crawl.
+
+---
+
+## Sprint: multi-page crawl + honest score framing
+
+**Sprint 2 / F4 - multi-page crawl.** An audit no longer judges a site by one URL.
+It reads the homepage, discovers key pages from the sitemap and on-page navigation
+(About, services, products, articles, etc.), scans up to five pages total, scores
+each, and headlines the strongest representative page. The results show every page
+scanned with its score so the verdict is transparent. This fixes the case where a
+thin homepage (for example a search box) made a real business look invisible.
+
+**Sprint 1 - page-type awareness + framing.** Each page is classified (home,
+article, product, search-tool, thin). The score is now labelled "AI-citability
+readiness" with a one-line explanation that it measures how ready a page is to be
+cited by AI, not a site's size or fame. When the strongest page is still thin or a
+search tool, the result says so plainly and points the user at a content page. This
+removes the false impression that a low score means a bad or unimportant site.
+
+Why a giant like google.com can still score low: its pages are tools, not citable
+content, so a low AI-citability score is correct. The fixes above make that result
+representative (multi-page) and clearly explained (framing), rather than misleading.
+
+---
+
+## Sprint: off-page authority + calibration & benchmarks
+
+**Sprint 3 - off-page authority (free, no-key).** Beyond on-page structure, the audit
+now gathers real-world recognition signals: entity presence in Wikidata, domain age
+via RDAP, and indexable scale from the sitemap, shown in an "Off-page authority" card
+with evidence and confidence. A recognized knowledge-graph entity counts toward the
+"earned mentions" signal, so genuinely authoritative brands are credited for it. All
+calls are best-effort with a short timeout and fail safe: if a source is unreachable,
+the audit still completes and the score is unaffected. (In a network-restricted
+environment the entity/domain lookups return empty, which is expected; the sitemap
+scale signal still works since it needs no extra network.)
+
+**Sprint 4 - calibration & benchmarks.** Each result now shows a typical range for its
+page type (for example, an article page typically scores 40-65) and whether the page
+is below, within, or above that range, so a number is read in context instead of in
+isolation. The regression suite gained calibration-band checks that assert
+representative pages land in their expected ranges, so scoring cannot silently drift.
+Suite is now 48 checks, all passing.
+
+Net effect on the original concern: a real business is judged across multiple pages
+(F4), credited for genuine authority (entity recognition), framed honestly about what
+the score means, and shown against a peer benchmark. A site like google.com may still
+score low because its pages are tools rather than citable content, which is correct,
+but the result is now representative and clearly explained rather than misleading.

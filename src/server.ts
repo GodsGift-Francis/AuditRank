@@ -36,7 +36,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.1.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.1.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {

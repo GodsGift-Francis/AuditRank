@@ -1,5 +1,6 @@
-import { analyze } from '../src/analyze.js';
+import { analyze, discoverPages } from '../src/analyze.js';
 import { assembleReport, buildKit } from '../src/score.js';
+import { applyAuthority, siteScale } from '../src/authority.js';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -73,6 +74,47 @@ for (const d of [d1, d2, d3, d4]) {
 const rs = assembleReport({ name: 'Solo Biz', website: 'https://solo.test' }, null, 'self', false);
 check('self: produces faq schema', /FAQPage/.test(rs.faqSchema));
 check('self: produces kit', !!rs.kit && rs.kit.llmsTxt.includes('Solo Biz'));
+
+// ---- Fixture 6: page-type classification (Sprint 1) ----
+check('strong page typed as content (home)', d1.pageType === 'home', d1.pageType);
+const ds = analyze('<html><head><title>Search</title><meta name="viewport" content="x"></head><body><form role="search"><input name="q"></form><a href="/about">About</a></body></html>', 'https://s.test', null, null, null, 100);
+check('search-box page typed search-tool', ds.pageType === 'search-tool', ds.pageType);
+const dt = analyze('<html><head><title>x</title></head><body><h1>Hi</h1><p>Short.</p></body></html>', 'https://t.test', null, null, null, 100);
+check('thin page typed thin', dt.pageType === 'thin', dt.pageType);
+
+// ---- Fixture 7: page discovery for multi-page crawl (Sprint 2 / F4) ----
+const navHtml = '<html><body><a href="/about">About</a><a href="/services">Services</a><a href="https://other.test/x">ext</a><a href="/logo.png">img</a><a href="#top">anchor</a><a href="mailto:a@b.com">mail</a></body></html>';
+const sm = '<urlset><url><loc>https://acme.test/</loc></url><url><loc>https://acme.test/faq</loc></url><url><loc>https://acme.test/blog/post-1</loc></url></urlset>';
+const found = discoverPages(navHtml, sm, 'https://acme.test/');
+check('discover: finds same-site pages', found.length >= 3, 'got ' + found.length);
+check('discover: excludes the homepage itself', !found.includes('https://acme.test') && !found.includes('https://acme.test/'), found.join(','));
+check('discover: excludes external host', !found.some(u => /other\.test/.test(u)));
+check('discover: excludes image/asset files', !found.some(u => /logo\.png/.test(u)));
+check('discover: excludes mailto/anchors', !found.some(u => /^mailto:|#/.test(u)));
+check('discover: prioritizes key pages first', /faq|about|service|blog/i.test(found[0] || ''), found[0]);
+
+// ---- Fixture 8: off-page authority fold (Sprint 3) ----
+const dEnt = analyze(strong, 'https://acme.test', 'User-agent: *\nAllow: /', '<urlset></urlset>', null, 300);
+const entBefore = assembleReport({ name: 'Acme', website: 'https://acme.test' }, dEnt, 'analyzed', true).score;
+applyAuthority(dEnt.answers, { entity: { found: true, title: 'Acme' }, domainAgeYears: 10, indexablePages: 120, tier: 'high', findings: [] });
+const entAfter = assembleReport({ name: 'Acme', website: 'https://acme.test' }, dEnt, 'analyzed', true).score;
+check('authority: recognized entity raises score', entAfter > entBefore, `before ${entBefore} after ${entAfter}`);
+check('authority: entity counts toward mentions', dEnt.answers.mentions === 'yes');
+const dNo = analyze(strong, 'https://acme.test', null, null, null, 300);
+const noBefore = assembleReport({ name: 'Acme', website: 'https://acme.test' }, dNo, 'analyzed', true).score;
+applyAuthority(dNo.answers, { entity: { found: false }, domainAgeYears: null, indexablePages: null, tier: 'unknown', findings: [] });
+const noAfter = assembleReport({ name: 'Acme', website: 'https://acme.test' }, dNo, 'analyzed', true).score;
+check('authority: no entity leaves score unchanged', noBefore === noAfter, `${noBefore} vs ${noAfter}`);
+check('siteScale: counts sitemap locs', siteScale('<urlset><loc>a</loc><loc>b</loc></urlset>') === 2);
+check('siteScale: null without sitemap', siteScale(null) === null);
+
+// ---- Fixture 9: benchmark + calibration bands (Sprint 4) ----
+check('benchmark: present on report', !!r1.benchmark && r1.benchmark.low > 0);
+check('benchmark: verdict computed', ['below', 'within', 'above'].includes(r1.benchmark!.verdict));
+check('benchmark: strong home page reads above typical', r1.benchmark!.pageType === 'home' && r1.benchmark!.verdict === 'above', JSON.stringify(r1.benchmark));
+const rThin = assembleReport({ name: 'X', website: 'https://thin.test' }, analyze('<html><head><title>x</title></head><body><h1>Hi</h1><p>We do stuff here.</p></body></html>', 'https://thin.test', null, null, null, 100), 'analyzed', true);
+check('calibration: thin page scores low (<=30)', rThin.score <= 30, `${rThin.score}`);
+check('calibration: thin benchmark band', rThin.benchmark!.pageType === 'thin' && rThin.benchmark!.low === 10, JSON.stringify(rThin.benchmark));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

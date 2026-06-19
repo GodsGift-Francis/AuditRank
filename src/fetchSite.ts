@@ -61,6 +61,15 @@ export interface FetchResult {
   finalUrl: string; error?: string; fetchMs: number;
 }
 
+export async function fetchPage(rawUrl: string): Promise<{ html: string | null; fetchMs: number }> {
+  const url = normalizeUrl(rawUrl);
+  let safe: URL;
+  try { safe = await assertSafe(url); } catch { return { html: null, fetchMs: 0 }; }
+  const t0 = Date.now();
+  const html = await get(safe.toString());
+  return { html, fetchMs: Date.now() - t0 };
+}
+
 export async function fetchSite(rawUrl: string): Promise<FetchResult> {
   const url = normalizeUrl(rawUrl);
   let safe: URL;

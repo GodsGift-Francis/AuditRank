@@ -20,12 +20,22 @@ export interface Finding { c: 'ok' | 'no' | 'neutral'; t: string; ev?: string; c
 export interface AiBot { name: string; allowed: boolean; matched: string; }
 export interface AiAccess { bots: AiBot[]; llmsTxt: boolean; majorBlocked: number; checked: boolean; }
 
+export interface Entity { found: boolean; title?: string; description?: string; id?: string; url?: string; }
+export interface Authority {
+  entity: Entity;
+  domainAgeYears: number | null;
+  indexablePages: number | null;
+  tier: 'high' | 'medium' | 'low' | 'unknown';
+  findings: Finding[];
+}
+
 export interface Detection {
   answers: Record<string, Ans>;
   findings: Finding[];
   profile: { what: string; city: string; country: string };
   aiAccess: AiAccess;
   confidence: number;
+  pageType: string;
 }
 
 export interface Business { name: string; website?: string; }
@@ -57,4 +67,7 @@ export interface Report {
   aiAccess?: AiAccess;
   confidence?: number;
   kit?: { llmsTxt: string; robotsSnippet: string };
+  scan?: { pages: { url: string; score: number }[]; representative: string; pageType: string; note?: string };
+  authority?: Authority;
+  benchmark?: { pageType: string; low: number; high: number; verdict: 'below' | 'within' | 'above' };
 }

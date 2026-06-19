@@ -152,7 +152,57 @@ export function analyze(html: string, url: string, robotsTxt: string | null, sit
   const city = guessCity(bodyText);
   const confidence = words > 200 ? 0.92 : (words > 60 ? 0.78 : 0.6);
 
-  return { answers: a, findings: F, profile: { what, city, country: '' }, aiAccess, confidence };
+  // page-type classification (Sprint 1)
+  const hasSearch = $('input[type="search"]').length > 0 || $('[role="search"]').length > 0 || $('form[action*="search" i]').length > 0 || $('input[name="q"]').length > 0;
+  const isArticle = /"@type"\s*:\s*"(NewsArticle|Article|BlogPosting)"/i.test(raw) || $('article').length > 0;
+  const isProduct = /"@type"\s*:\s*"Product"/i.test(raw) || /\badd to cart\b|\bbuy now\b/i.test(bodyText);
+  const contentful = faqSchema || qHead.length >= 2 || ldCount >= 1 || isArticle || isProduct || numbers >= 8;
+  let pageType = 'home';
+  if (words < 90 && hasSearch && !contentful) pageType = 'search-tool';
+  else if (words < 120 && !contentful) pageType = 'thin';
+  else if (isProduct) pageType = 'product';
+  else if (isArticle) pageType = 'article';
+
+  return { answers: a, findings: F, profile: { what, city, country: '' }, aiAccess, confidence, pageType };
+}
+
+const KEY_PATH = /(about|faq|service|product|pricing|menu|blog|news|article|portfolio|work|team|contact|listing|propert|home-for|for-sale|for-rent)/i;
+function toAbs(href: string, base: string): string | null {
+  try { return new URL(href, base).toString(); } catch { return null; }
+}
+function stripHash(u: string): string { return u.split('#')[0].replace(/\/$/, '') || u; }
+function sameHost(u: string, originUrl: string): boolean {
+  try { return new URL(u).host.replace(/^www\./, '') === new URL(originUrl).host.replace(/^www\./, ''); } catch { return false; }
+}
+
+/** Discover same-site candidate pages from the sitemap and on-page nav links (Sprint 2 / F4). */
+export function discoverPages(html: string, sitemapXml: string | null, currentUrl: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const cur = stripHash(currentUrl);
+  const push = (u: string | null) => {
+    if (!u) return;
+    const s = stripHash(u);
+    if (s === cur || seen.has(s)) return;
+    if (!sameHost(s, currentUrl)) return;
+    if (/\.(pdf|jpg|jpeg|png|gif|svg|webp|ico|css|js|zip|mp4|xml|woff2?|txt)(\?|$)/i.test(s)) return;
+    if (/^(mailto:|tel:|javascript:)/i.test(u)) return;
+    seen.add(s); out.push(s);
+  };
+  // sitemap first, key pages prioritized
+  if (sitemapXml) {
+    const locs = [...sitemapXml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)].map(m => m[1].trim());
+    locs.sort((x, y) => (KEY_PATH.test(y) ? 1 : 0) - (KEY_PATH.test(x) ? 1 : 0));
+    locs.forEach(push);
+  }
+  // then nav links, key pages prioritized
+  try {
+    const $ = cheerio.load(html);
+    const links = $('a[href]').map((_, a) => toAbs($(a).attr('href') || '', currentUrl)).get().filter(Boolean) as string[];
+    links.sort((x, y) => (KEY_PATH.test(y) ? 1 : 0) - (KEY_PATH.test(x) ? 1 : 0));
+    links.forEach(push);
+  } catch { /* ignore */ }
+  return out;
 }
 
 function guessCity(text: string): string {

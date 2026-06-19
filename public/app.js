@@ -195,6 +195,47 @@ function renderAi(r) {
     '<div class="aifoot">If a crawler is blocked in robots.txt, that engine cannot read or recommend you. This is checked directly from your robots.txt.</div></div>';
 }
 
+function renderScan(r) {
+  var el = $('scanWrap'); if (!el) return;
+  if (r.mode !== 'analyzed' || !r.scan) { el.innerHTML = ''; return; }
+  var sc = r.scan;
+  var path = function (u) { try { var x = new URL(u); return (x.pathname === '/' || !x.pathname) ? '/' : x.pathname; } catch (e) { return u; } };
+  var pagesRow = sc.pages.length > 1
+    ? '<div class="scan-pages">' + sc.pages.map(function (p) {
+        var rep = p.url === sc.representative;
+        return '<span class="scan-pg' + (rep ? ' rep' : '') + '">' + esc(path(p.url)) + ' <b>' + p.score + '</b></span>';
+      }).join('') + '</div>'
+    : '';
+  var note = sc.note ? '<div class="scan-note">' + esc(sc.note) + '</div>' : '';
+  var bench = '';
+  if (r.benchmark) {
+    var bm = r.benchmark, vmap = { below: ['below', 'lose'], within: ['within', 'hold'], above: ['above', 'win'] };
+    var vv = vmap[bm.verdict] || vmap.within;
+    bench = '<div class="scan-bench ' + vv[1] + '">Typical for a <b>' + esc(bm.pageType) + '</b> page is <b>' + bm.low + '-' + bm.high + '</b>. You are <b>' + vv[0] + '</b> the typical range.</div>';
+  }
+  el.innerHTML = '<div class="scancard">' +
+    '<div class="scan-cap">AI-citability readiness <span class="scan-sub">how ready your pages are to be cited by AI, not your site\'s size or fame</span></div>' +
+    '<div class="scan-line">Scanned <b>' + sc.pages.length + ' page' + (sc.pages.length > 1 ? 's' : '') + '</b>, scored on your strongest: <b>' + esc(path(sc.representative)) + '</b></div>' +
+    pagesRow + bench + note + '</div>';
+}
+
+function renderAuthority(r) {
+  var el = $('authWrap'); if (!el) return;
+  var a = r.authority;
+  if (r.mode !== 'analyzed' || !a) { el.innerHTML = ''; return; }
+  if (a.tier === 'unknown' && !a.entity.found) { el.innerHTML = ''; return; } // nothing useful to show offline
+  var tierLabel = { high: 'Strong', medium: 'Moderate', low: 'Limited', unknown: 'Unknown' }[a.tier] || a.tier;
+  var rows = (a.findings || []).map(function (f) {
+    var chip = f.status ? '<span class="evchip ' + esc(f.status) + '">' + esc(f.status) + (f.conf ? ' · ' + esc(f.conf) : '') + '</span>' : '';
+    var ev = f.ev ? '<div class="evidence">' + esc(f.ev) + '</div>' : '';
+    return '<li class="' + f.c + '"><span class="mk">' + (f.c === 'ok' ? '✓' : f.c === 'no' ? '✕' : '•') + '</span><span class="ftext">' + esc(f.t) + ' ' + chip + ev + '</span></li>';
+  }).join('');
+  el.innerHTML = '<div class="sub-h">Off-page authority <span class="conf-overall">real-world recognition</span></div>' +
+    '<div class="aicard ' + (a.entity.found ? 'ok' : '') + '"><div class="aihead"><span class="aiverdict">Authority signal: ' + esc(tierLabel) + '</span></div>' +
+    '<ul class="ar-find2">' + rows + '</ul>' +
+    '<div class="aifoot">A recognized knowledge-graph entity counts toward earned recognition. These are free, public signals, not paid data.</div></div>';
+}
+
 function renderTrend(r) {
   const tw = $('trendWrap'); if (!tw) return;
   const d = r.delta, hist = r.history || [];
@@ -246,8 +287,10 @@ function renderResults() {
   $('genName').textContent = (r.business && r.business.name) || state.name || 'your site';
 
   // visibility over time (saved audits + weekly re-scan)
+  renderScan(r);
   renderTrend(r);
   renderAi(r);
+  renderAuthority(r);
 
   // what we detected (with evidence + confidence)
   const fw = $('foundWrap');
