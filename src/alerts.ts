@@ -22,7 +22,7 @@ export function buildAlertText(p: AlertPayload): string {
   const dir = p.kind === 'drop' ? 'dropped' : p.kind === 'gain' ? 'improved' : 'changed';
   const sign = p.delta > 0 ? '+' : '';
   const from = p.prevScore == null ? '' : ` from ${p.prevScore}`;
-  return `AuditRank: ${p.name} ${dir} ${sign}${p.delta} pts${from} to ${p.score}/100${p.band ? ` (${p.band})` : ''} — ${p.website}`;
+  return `AuditRank: ${p.name} ${dir} ${sign}${p.delta} pts${from} to ${p.score}/100${p.band ? ` (${p.band})` : ''} - ${p.website}`;
 }
 
 /** Reject webhook URLs that point at localhost / private / metadata hosts (SSRF guard). */

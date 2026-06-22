@@ -20,7 +20,7 @@ export function suggestPrompts(name: string, what: string, city: string): string
   let cat = (what || '').trim();
   if (name) cat = cat.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
   const GENERIC = /^(blog|home|homepage|news|about|contact|welcome|index|page|untitled)$/i;
-  const segs = cat.split(/[|\-–—:·•]+/).map(s => s.trim()).filter(s => s && !GENERIC.test(s));
+  const segs = cat.split(/[|\-:·•]+/).map(s => s.trim()).filter(s => s && !GENERIC.test(s));
   cat = (segs.sort((a, b) => b.length - a.length)[0] || '').replace(/[.!?].*$/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   if (cat.length < 4) cat = 'this kind of business';
   const catLc = cat.charAt(0).toLowerCase() + cat.slice(1);

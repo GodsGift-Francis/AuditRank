@@ -140,12 +140,12 @@ export function analyze(html: string, url: string, robotsTxt: string | null, sit
   add(!anyImagery ? 'neutral' : (imgEls.length === 0 ? 'ok' : altRatio >= 0.8 ? 'ok' : altRatio >= 0.4 ? 'neutral' : 'no'),
     !anyImagery ? 'No images detected' : (imgEls.length === 0 ? `${bgImgN} CSS background image${bgImgN !== 1 ? 's' : ''}` : `Images: ${imgEls.length} found, ${altN} with alt (${Math.round(altRatio * 100)}%)`),
     `${imgEls.length} <img>, ${altN} with alt text, ${bgImgN} CSS backgrounds`, 'high', 'detected');
-  add(heavy ? 'no' : 'ok', `Page weight ~${htmlKB} KB · ${scriptN} scripts · ${cssN} stylesheets — ${heavy ? 'heavy' : 'light'}`,
+  add(heavy ? 'no' : 'ok', `Page weight ~${htmlKB} KB · ${scriptN} scripts · ${cssN} stylesheets - ${heavy ? 'heavy' : 'light'}`,
     `${htmlKB} KB HTML, ${scriptN} script tags, ${cssN} stylesheets`, 'med', 'inferred');
   if (fetchMs > 0) add(fetchMs < 800 ? 'ok' : fetchMs < 2500 ? 'neutral' : 'no',
     `Server responded in ~${fetchMs} ms`, `measured time to fetch the HTML: ${fetchMs} ms`, 'high', 'detected');
   add((robotsState === 'unknown' && sitemapState === 'unknown') ? 'neutral' : (robotsOK && sitemapOK ? 'ok' : 'neutral'),
-    `Crawlability: robots.txt ${robotsState === 'unknown' ? '—' : robotsState === 'blocked' ? 'blocks crawlers ✕' : 'ok'} · sitemap.xml ${sitemapState === 'unknown' ? '—' : sitemapState}`,
+    `Crawlability: robots.txt ${robotsState === 'unknown' ? ' - ' : robotsState === 'blocked' ? 'blocks crawlers ✕' : 'ok'} · sitemap.xml ${sitemapState === 'unknown' ? ' - ' : sitemapState}`,
     `robots.txt ${robotsTxt != null ? 'fetched' : 'not found'}, sitemap.xml ${sitemapXml != null ? 'fetched' : 'not found'}`, 'high', 'detected');
 
   const what = (metaDesc || title || '').slice(0, 160);

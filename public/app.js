@@ -1,4 +1,4 @@
-/* AuditRank web app — talks to the server API; no analysis happens in the browser. */
+/* AuditRank web app - talks to the server API; no analysis happens in the browser. */
 const SIGNALS = [
   { id: 'faq', name: 'FAQ / answer-shaped content', w: 14 },
   { id: 'schema', name: 'Structured data (schema)', w: 13 },
@@ -14,10 +14,10 @@ const QMAP = {
   faq: "Do you directly answer your customers' real buying questions (an FAQ / Q&A page)?",
   schema: "Is schema markup (FAQ, LocalBusiness, Organization) on your site?",
   facts: "Does your content include specific numbers, prices and facts (not vague claims)?",
-  mentions: "Is your business mentioned on other sites — directories, reviews, press, forums?",
+  mentions: "Is your business mentioned on other sites - directories, reviews, press, forums?",
   fresh: "Is your key content updated regularly with a visible \u201clast updated\u201d date?",
-  identity: "Is it clear who you are — real name, About page, contact details?",
-  convo: "Is your content written the way people actually ask — full questions, plain answers?",
+  identity: "Is it clear who you are - real name, About page, contact details?",
+  convo: "Is your content written the way people actually ask - full questions, plain answers?",
   gbp: "Is your Google Business Profile complete, accurate and active?",
   tech: "Is your site fast, mobile-friendly and easy for crawlers to read?",
 };
@@ -83,7 +83,7 @@ function fallbackAudit(name, site) {
   fetch('/api/audit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name, website: site }) })
     .then(function (r) { return r.json(); })
     .then(function (data) { stopLoading(); if (data.readError) { show('p_readfail'); return; } if (!data.ok) { toast(data.error || 'Audit failed.'); show('p_intake'); return; } applyReport(data); })
-    .catch(function () { stopLoading(); toast('Network error — is the server running?'); show('p_intake'); });
+    .catch(function () { stopLoading(); toast('Network error - is the server running?'); show('p_intake'); });
 }
 
 /* ---- live audit theater ---- */
@@ -148,7 +148,7 @@ function goSelfAssess() {
     </div>`);
   });
   $('auditTitle').textContent = 'Self-assessment';
-  $('auditLede').textContent = 'Answer honestly — this scores how AI sees you.';
+  $('auditLede').textContent = 'Answer honestly - this scores how AI sees you.';
   show('p_audit');
   $('p_audit').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -459,7 +459,7 @@ function renderResults() {
   const colors = { Cited: ['#1FA971', '#E6F7EF'], Visible: ['#1FA971', '#E6F7EF'], Emerging: ['#E8920A', '#FDF2E2'], Invisible: ['#E5484D', '#FDECEC'] };
   const [c, bg] = colors[r.band] || colors.Emerging;
 
-  if (r.mode === 'analyzed') { $('modeNotice').style.display = 'block'; $('modeNotice').innerHTML = `<b>Site analysed</b> — we read ${esc((r.business && r.business.website) || state.site).replace(/^https?:\/\//, '')} on our server and scored your on-page signals.`; }
+  if (r.mode === 'analyzed') { $('modeNotice').style.display = 'block'; $('modeNotice').innerHTML = `<b>Site analysed</b> - we read ${esc((r.business && r.business.website) || state.site).replace(/^https?:\/\//, '')} on our server and scored your on-page signals.`; }
   else $('modeNotice').style.display = 'none';
 
   $('bandTag').textContent = r.band; $('bandTag').style.background = bg; $('bandTag').style.color = c;
@@ -511,7 +511,7 @@ function renderResults() {
       const mk = v => `<button class="${cur === v ? 'sel' : ''}" data-v="${v}" onclick="refine('${id}','${v}')">${v === 'yes' ? 'Yes' : v === 'partial' ? 'Partly' : 'No'}</button>`;
       return `<div class="rr"><span class="ql">${esc(sig.name)} <span style="color:var(--muted);font-weight:500">(+${sig.w} pts)</span></span><div class="opts">${mk('yes')}${mk('partial')}${mk('no')}</div></div>`;
     }).join('');
-    rw.innerHTML = `<div class="refine"><div class="rt">Optional: add ${state.unverified.length} signal${state.unverified.length > 1 ? 's' : ''} we can't see from your page</div><div class="rs">These live off your website, so we left them out of the scan. Tap to include them — your score updates instantly.</div>${rows}</div>`;
+    rw.innerHTML = `<div class="refine"><div class="rt">Optional: add ${state.unverified.length} signal${state.unverified.length > 1 ? 's' : ''} we can't see from your page</div><div class="rs">These live off your website, so we left them out of the scan. Tap to include them - your score updates instantly.</div>${rows}</div>`;
   } else rw.innerHTML = '';
 
   // fix plan
@@ -523,9 +523,9 @@ function renderResults() {
   // generated content
   const gw = $('genWrap'); gw.innerHTML = '';
   const faqHtml = (r.faq || []).map(o => `<div class="qa"><div class="qq">${esc(o.q)}</div><div class="aa">${esc(o.a)}</div></div>`).join('');
-  gw.insertAdjacentHTML('beforeend', card('FAQ answers — paste into your pages', faqHtml, (r.faq || []).map(o => `Q: ${o.q}\nA: ${o.a}`).join('\n\n'), true));
-  gw.insertAdjacentHTML('beforeend', card('FAQ schema — paste into your &lt;head&gt;', `<pre>${esc(r.faqSchema)}</pre>`, r.faqSchema));
-  gw.insertAdjacentHTML('beforeend', card('Business schema — tells AI who &amp; where you are', `<pre>${esc(r.bizSchema)}</pre>`, r.bizSchema));
+  gw.insertAdjacentHTML('beforeend', card('FAQ answers - paste into your pages', faqHtml, (r.faq || []).map(o => `Q: ${o.q}\nA: ${o.a}`).join('\n\n'), true));
+  gw.insertAdjacentHTML('beforeend', card('FAQ schema - paste into your &lt;head&gt;', `<pre>${esc(r.faqSchema)}</pre>`, r.faqSchema));
+  gw.insertAdjacentHTML('beforeend', card('Business schema - tells AI who &amp; where you are', `<pre>${esc(r.bizSchema)}</pre>`, r.bizSchema));
 
   // fix kit downloads (A2)
   renderKit(r);
@@ -544,7 +544,7 @@ function renderKit(r) {
     faqSchema: r.faqSchema, bizSchema: r.bizSchema, llmsTxt: r.kit.llmsTxt, robots: r.kit.robotsSnippet,
     faqText: (r.faq || []).map(function (o) { return 'Q: ' + o.q + '\nA: ' + o.a; }).join('\n\n'),
   };
-  el.innerHTML = '<div class="sub-h">Fix kit — download &amp; apply</div>' +
+  el.innerHTML = '<div class="sub-h">Fix kit - download &amp; apply</div>' +
     '<div class="kit"><p class="kit-lede">Ready-to-use files. Drop the schema into your &lt;head&gt;, save llms.txt and the robots rules at your site root.</p>' +
     '<div class="kit-btns">' +
     kitBtn('FAQ schema', 'faq-schema.html', 'faqSchema') +

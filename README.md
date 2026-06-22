@@ -1,4 +1,4 @@
-# AuditRank — web app (zero-key)
+# AuditRank - web app (zero-key)
 
 A self-hostable **web application** for AI search-visibility audits. No API keys,
 no browser CORS hacks: the **server** fetches the target site directly, analyzes
@@ -36,7 +36,7 @@ Dev with auto-reload: `npm run dev`.
 
 The report includes: `score`, `band`, `headline`, per-signal `signals`, detected
 `findings`, a prioritized `fixes` plan, and ready-to-paste `faq` + `faqSchema` +
-`bizSchema`. The **fix plan is the point** — every gap maps to a concrete action.
+`bizSchema`. The **fix plan is the point** - every gap maps to a concrete action.
 
 ## Deploy to Cloud Run
 
@@ -49,7 +49,7 @@ Node 18+ host or container platform.
 
 ## How it fits your funnel
 
-- This app is the **product** users run (free, zero-key) — the lead magnet that
+- This app is the **product** users run (free, zero-key) - the lead magnet that
   shows real value instantly.
 - The separate `auditrank-engine` is the **paid, monitored backend** (ground-truth
   multi-engine tracking) that needs keys; this app can call it for premium audits.
@@ -75,7 +75,7 @@ Dockerfile
 
 - Off-site signals (reviews/mentions, Google Business Profile) can't be read from a
   page without paid data, so they start uncounted and the user confirms them with a
-  one-tap toggle that recomputes the score live — honest by design.
+  one-tap toggle that recomputes the score live - honest by design.
 - If a site blocks automated reads, the app offers a **paste-HTML** recovery path so
   the user always gets a real analysis.
 
@@ -112,8 +112,7 @@ re-checks tracked sites weekly so a user can see if they are winning or losing.
   ```
   Set `RESCAN_TOKEN` in the service env to require that header.
 
-For real scale, swap the JSON file in `src/store.ts` for Postgres (your stack) —
-the function signatures stay the same.
+For real scale, swap the JSON file in `src/store.ts` for Postgres (your stack) - the function signatures stay the same.
 
 ---
 
