@@ -70,6 +70,32 @@ export async function fetchPage(rawUrl: string): Promise<{ html: string | null; 
   return { html, fetchMs: Date.now() - t0 };
 }
 
+export interface PageFetch { status: number; html: string | null; finalUrl: string; fetchMs: number; bytes: number; redirected: boolean; error?: string; }
+
+async function getDetailed(url: string, timeoutMs = 12000): Promise<Omit<PageFetch, 'fetchMs'>> {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml,text/plain,*/*' }, redirect: 'follow', signal: ctrl.signal });
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    let html: string | null = null; let bytes = 0;
+    if (!ct || /text\/html|application\/xhtml|text\/plain/.test(ct)) {
+      const txt = await res.text(); bytes = txt.length; html = txt.length > MAX_BYTES ? txt.slice(0, MAX_BYTES) : txt;
+    } else { bytes = Number(res.headers.get('content-length') || '0'); }
+    return { status: res.status, html: res.ok ? html : null, finalUrl: res.url || url, bytes, redirected: res.redirected };
+  } catch { return { status: 0, html: null, finalUrl: url, bytes: 0, redirected: false, error: 'unreachable' }; }
+  finally { clearTimeout(to); }
+}
+
+export async function fetchPageDetailed(rawUrl: string): Promise<PageFetch> {
+  const url = normalizeUrl(rawUrl);
+  let safe: URL;
+  try { safe = await assertSafe(url); } catch (e: any) { return { status: 0, html: null, finalUrl: url, fetchMs: 0, bytes: 0, redirected: false, error: e?.message || 'blocked' }; }
+  const t0 = Date.now();
+  const r = await getDetailed(safe.toString());
+  return { ...r, fetchMs: Date.now() - t0 };
+}
+
 export async function fetchSite(rawUrl: string): Promise<FetchResult> {
   const url = normalizeUrl(rawUrl);
   let safe: URL;

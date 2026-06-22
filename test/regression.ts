@@ -5,6 +5,7 @@ import { suggestPrompts } from '../src/audit.js';
 import { buildShareCard, buildSharePage } from '../src/share.js';
 import { saveSharedReport, getSharedReport, upsertMonitor, getMonitor, stopMonitor } from '../src/store.js';
 import { shouldAlert, buildAlertText, isSafeWebhook } from '../src/alerts.js';
+import { extractPage } from '../src/deep.js';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -152,6 +153,16 @@ check('webhook guard: allows public https', isSafeWebhook('https://hooks.slack.c
 const mon = upsertMonitor({ website: 'https://watch.test', name: 'Watch Co', cadence: 'daily', webhook: 'https://hooks.slack.com/x' });
 check('monitor: upsert + get by site', getMonitor('https://watch.test')?.cadence === 'daily' && mon.enabled === true);
 check('monitor: stop disables it', stopMonitor('https://watch.test') === true && getMonitor('https://watch.test')?.enabled === false);
+
+// ---- Fixture 13: deep research per-page extraction ----
+const dpHtml = '<html><head><title>Hello World Page</title><meta name="description" content="A short description here"><link rel="canonical" href="https://acme.test/page"><meta name="robots" content="noindex"><meta name="viewport" content="x"></head><body><h1>Main</h1><h1>Second</h1><p>' + 'word '.repeat(50) + '</p><img src="a.jpg" alt="alt text"><img src="b.jpg"><a href="/about">about</a><a href="https://other.test/x">ext</a><script type="application/ld+json">{"@type":"Organization"}</script></body></html>';
+const pd = extractPage(dpHtml, 'https://acme.test/page', 200, false, 120, dpHtml.length);
+check('deep: extracts title + length', pd.title === 'Hello World Page' && pd.titleLen === 16);
+check('deep: counts multiple H1s', pd.h1Count === 2);
+check('deep: alt coverage (1 of 2)', pd.imgCount === 2 && pd.imgWithAlt === 1);
+check('deep: splits internal vs external links', pd.internalLinks.length === 1 && pd.externalLinks === 1);
+check('deep: detects noindex + schema type', pd.noindex === true && pd.schemaTypes.indexOf('Organization') >= 0);
+check('deep: normalizes canonical', pd.canonical === 'https://acme.test/page');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

@@ -310,3 +310,28 @@ every six hours; on scale-to-zero hosts, call POST /api/cron/rescan from a sched
 
 Env vars for email: SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS,
 SMTP_SECURE (true/false), ALERT_FROM. Optional global fallback webhook: ALERT_WEBHOOK.
+
+---
+
+## Sprint: deep research report
+
+From any audit, "Run deep research" crawls up to 16 pages of the site and produces a
+console-style report that goes well beyond the single-page AI score:
+
+- Overall health plus four category scores: Technical, Indexability, Content, AI-readiness.
+- Crawl health: HTTP status spread (2xx/3xx/4xx/5xx), average load time and page weight,
+  slowest and heaviest pages.
+- SEO: missing or duplicate titles and meta descriptions, length problems, missing or
+  multiple H1s, thin pages, average word count.
+- Indexability: noindex, canonicalized, and non-HTTPS pages; indexable count.
+- Media: image alt-text coverage. Schema: pages using structured data and the types found.
+- Linking: average internal links and orphan-page detection.
+- AI access: blocked crawlers, llms.txt, and the strongest page for AI citation.
+- Every finding as a severity-tagged issue (critical / needs attention / passing) and a
+  prioritized, actionable fix list.
+
+It runs over Server-Sent Events with live progress (`GET /api/deep/stream`) or as a
+single call (`POST /api/deep`). The report is explicit that it is an independent
+crawl-based analysis: real search queries, clicks, average position and index coverage
+require the verified owner to connect Google Search Console, which is planned for the
+connected (keyed) tier. That keeps the no-key promise while leaving a clear upgrade path.

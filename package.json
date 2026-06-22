@@ -1,6 +1,6 @@
 {
   "name": "auditrank-app",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "description": "AuditRank — zero-key AI search visibility audit, as a self-hostable web application. Reads the site server-side (no keys, no CORS), scores it, and returns a concrete fix plan.",

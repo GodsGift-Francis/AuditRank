@@ -55,7 +55,7 @@ function runAudit() {
   const name = $('f_name').value.trim();
   const site = $('f_site').value.trim();
   if (!name) { toast('Add your business name first.'); return; }
-  state.name = name; state.site = site; state.report = null;
+  state.name = name; state.site = site; state.report = null; state._deepReport = null;
   if (!site) return goSelfAssess();
 
   startTheater(site);
@@ -388,6 +388,72 @@ window.testWatch = function () {
     }).catch(function () { b.disabled = false; b.textContent = o; $('wMsg').className = 'watch-msg err'; $('wMsg').textContent = 'Network error.'; });
 };
 
+function dcol(s) { return s >= 80 ? 'var(--ok)' : s >= 60 ? '#2E7D32' : s >= 35 ? 'var(--amber-deep)' : 'var(--bad)'; }
+function renderDeep(r) {
+  var el = $('deepWrap'); if (!el) return;
+  if (r.mode !== 'analyzed' || !state.site) { el.innerHTML = ''; return; }
+  if (state._deepReport) { renderDeepDashboard(state._deepReport); return; }
+  el.innerHTML = '<div class="deepcta"><div class="deepcta-txt"><div class="deepcta-h">Go deeper: full site research report</div>' +
+    '<p>Crawl up to 16 pages for a console-style technical, SEO and AI-readiness report, with every issue and a prioritized fix list.</p></div>' +
+    '<button class="btn btn-signal" id="deepGo" onclick="runDeep()">Run deep research &rarr;</button></div>';
+}
+window.runDeep = function () {
+  var el = $('deepWrap');
+  el.innerHTML = '<div class="deeploading"><div class="dspin"></div><div><b>Deep research running</b><br><span id="deepStat" class="deepstat">crawling your pages…</span></div></div>';
+  try {
+    var es = new EventSource('/api/deep/stream?website=' + encodeURIComponent(state.site) + '&name=' + encodeURIComponent(state.name || ''));
+    es.addEventListener('log', function (e) { try { var d = JSON.parse(e.data); var s = $('deepStat'); if (s && d.label) s.textContent = d.label; } catch (x) {} });
+    es.addEventListener('done', function (e) { es.close(); try { var d = JSON.parse(e.data); if (!d.ok) { el.innerHTML = '<div class="deeperr">' + esc(d.note || 'Could not read that site.') + '</div>'; return; } state._deepReport = d; renderDeepDashboard(d); } catch (x) { fallbackDeep(); } });
+    es.addEventListener('error', function () { es.close(); fallbackDeep(); });
+  } catch (x) { fallbackDeep(); }
+};
+function fallbackDeep() {
+  var el = $('deepWrap');
+  fetch('/api/deep', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ website: state.site, name: state.name || '' }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (!d.ok) { el.innerHTML = '<div class="deeperr">' + esc(d.note || d.error || 'Deep research failed.') + '</div>'; return; } state._deepReport = d; renderDeepDashboard(d); })
+    .catch(function () { el.innerHTML = '<div class="deeperr">Network error during deep research.</div>'; });
+}
+function renderDeepDashboard(d) {
+  var el = $('deepWrap'); if (!el) return;
+  var path = function (u) { try { var x = new URL(u); return x.pathname || '/'; } catch (e) { return u; } };
+  var cats = [['Technical', d.categories.technical], ['Indexability', d.categories.indexability], ['Content', d.categories.content], ['AI-readiness', d.categories.ai]];
+  var catRows = cats.map(function (c) {
+    return '<div class="deep-cat"><span class="deep-cat-l">' + c[0] + '</span><div class="deep-cat-bar"><i style="width:' + c[1] + '%;background:' + dcol(c[1]) + '"></i></div><span class="deep-cat-s" style="color:' + dcol(c[1]) + '">' + c[1] + '</span></div>';
+  }).join('');
+  var sd = d.crawl.statusDist || {};
+  var tiles = [
+    ['Pages crawled', d.pagesCrawled], ['Indexable', d.index.indexable + '/' + d.pagesCrawled],
+    ['Avg load', d.crawl.avgFetchMs + ' ms'], ['Avg weight', d.crawl.avgKb + ' KB'],
+    ['Schema pages', d.schema.pagesWith], ['Alt coverage', d.media.altPct + '%'],
+    ['Avg words', d.seo.avgWords], ['Internal links/pg', d.links.avgInternal]
+  ];
+  var tileHtml = tiles.map(function (t) { return '<div class="deep-tile"><div class="deep-tile-n">' + esc(String(t[1])) + '</div><div class="deep-tile-l">' + t[0] + '</div></div>'; }).join('');
+  var statusHtml = ['2xx', '3xx', '4xx', '5xx', 'err'].filter(function (k) { return sd[k]; }).map(function (k) {
+    var bad = k === '4xx' || k === '5xx' || k === 'err';
+    return '<span class="deep-stat-chip ' + (bad ? 'bad' : 'ok') + '">' + sd[k] + ' ' + k + '</span>';
+  }).join('');
+  var groups = [['critical', 'Critical', 'bad'], ['warning', 'Needs attention', 'warn'], ['good', 'Passing', 'ok']];
+  var issuesHtml = groups.map(function (g) {
+    var list = (d.issues || []).filter(function (i) { return i.severity === g[0]; });
+    if (!list.length) return '';
+    return '<div class="deep-igroup"><div class="deep-igroup-h ' + g[2] + '">' + g[1] + ' <b>' + list.length + '</b></div>' +
+      list.map(function (i) { return '<div class="deep-issue ' + g[2] + '"><span class="deep-area">' + esc(i.area) + '</span><div><div class="deep-it">' + esc(i.title) + '</div><div class="deep-id">' + esc(i.detail) + '</div></div></div>'; }).join('') + '</div>';
+  }).join('');
+  var fixHtml = (d.fixes || []).map(function (f) {
+    return '<div class="deep-fix"><span class="deep-fixn">' + f.priority + '</span><div><div class="deep-it">' + esc(f.title) + ' <span class="deep-area">' + esc(f.area) + '</span></div><div class="deep-id">' + esc(f.action) + '</div></div></div>';
+  }).join('');
+  el.innerHTML = '<div class="sub-h">Deep research report <span class="conf-overall">site-wide crawl of ' + d.pagesCrawled + ' pages</span></div>' +
+    '<div class="deepdash">' +
+    '<div class="deep-top"><div class="deep-overall"><div class="deep-ovnum" style="color:' + dcol(d.overall) + '">' + d.overall + '</div><div class="deep-ovl">overall<br>health</div></div><div class="deep-cats">' + catRows + '</div></div>' +
+    '<div class="deep-status">' + statusHtml + '<span class="deep-status-meta">crawled ' + esc(path(d.aiAccess.headlinePage) === '/' ? d.website.replace(/^https?:\/\//, '') : 'site') + ' · strongest page for AI: <b>' + esc(path(d.aiAccess.headlinePage)) + '</b></span></div>' +
+    '<div class="deep-grid">' + tileHtml + '</div>' +
+    '<div class="deep-section"><h4>Issues found</h4>' + (issuesHtml || '<p class="deep-id">No issues detected.</p>') + '</div>' +
+    (fixHtml ? '<div class="deep-section"><h4>Prioritized fixes</h4>' + fixHtml + '</div>' : '') +
+    '<p class="deep-note">' + esc(d.note) + '</p>' +
+    '</div>';
+}
+
 function renderResults() {
   const r = state.report, s = r.score;
   const colors = { Cited: ['#1FA971', '#E6F7EF'], Visible: ['#1FA971', '#E6F7EF'], Emerging: ['#E8920A', '#FDF2E2'], Invisible: ['#E5484D', '#FDECEC'] };
@@ -402,6 +468,7 @@ function renderResults() {
 
   // visibility over time (saved audits + weekly re-scan)
   renderScan(r);
+  renderDeep(r);
   renderTrend(r);
   renderAi(r);
   renderAuthority(r);
@@ -507,7 +574,7 @@ function copyEl(id, btn) {
   navigator.clipboard.writeText(window['_copy_' + id] || '').then(() => { btn.textContent = 'Copied ✓'; btn.classList.add('done'); setTimeout(() => { btn.textContent = btn.textContent.replace('Copied ✓', 'Copy'); btn.classList.remove('done'); }, 1600); });
 }
 function resetAll() {
-  state.report = null; state.answers = {}; state.unverified = [];
+  state.report = null; state._deepReport = null; state.answers = {}; state.unverified = [];
   $('f_name').value = ''; $('f_site').value = ''; if ($('f_html')) $('f_html').value = '';
   show('p_intake'); window.scrollTo({ top: 0, behavior: 'smooth' });
 }

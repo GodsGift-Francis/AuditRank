@@ -8,6 +8,7 @@ import type { Ans, Business, Report } from './types.js';
 import { saveSnapshot, getHistory, computeDelta, listSites, saveSharedReport, getSharedReport, upsertMonitor, getMonitor, listMonitors, stopMonitor } from './store.js';
 import { rescanDue, startScheduler } from './rescan.js';
 import { runAudit, quickScore } from './audit.js';
+import { deepResearch } from './deep.js';
 import { buildShareCard, buildSharePage } from './share.js';
 import { sendWebhook, sendEmail, isSafeWebhook, type AlertPayload } from './alerts.js';
 
@@ -38,7 +39,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.3.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report', 'scheduled-rescan', 'drop-alerts'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.4.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report', 'scheduled-rescan', 'drop-alerts', 'deep-research'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {
@@ -72,6 +73,37 @@ app.get('/api/audit/stream', async (req, res) => {
     emit('done', final);
   } catch (e: any) {
     emit('error', { message: 'Audit failed: ' + (e?.message || 'unknown') });
+  } finally { res.end(); }
+});
+
+/** Deep research: site-wide crawl + console-style technical/SEO/AI report. */
+app.post('/api/deep', async (req, res) => {
+  try {
+    if (rateLimited(clientIp(req), 8)) return res.status(429).json({ ok: false, error: 'Deep research is heavy; please wait a minute between runs.' });
+    const website = String(req.body?.website || '').trim();
+    const name = String(req.body?.name || '').trim() || (website ? website.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'This site');
+    if (!website) return res.status(400).json({ ok: false, error: 'A website is required for deep research.' });
+    const report = await deepResearch({ name, website });
+    return res.json(report);
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: 'Deep research failed: ' + (e?.message || 'unknown') });
+  }
+});
+
+/** Live streaming deep research via Server-Sent Events. */
+app.get('/api/deep/stream', async (req, res) => {
+  if (rateLimited(clientIp(req), 8)) { res.status(429).end(); return; }
+  const website = String(req.query.website || '').trim();
+  const name = String(req.query.name || '').trim() || (website ? website.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'This site');
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  const emit = (event: string, data: any) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  try {
+    if (!website) { emit('error', { message: 'A website is required.' }); return res.end(); }
+    const report = await deepResearch({ name, website }, emit);
+    emit('done', report);
+  } catch (e: any) {
+    emit('error', { message: 'Deep research failed: ' + (e?.message || 'unknown') });
   } finally { res.end(); }
 });
 
