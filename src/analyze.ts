@@ -100,7 +100,7 @@ export function analyze(html: string, url: string, robotsTxt: string | null, sit
   const bots: AiBot[] = AI_BOTS.map(b => { const r = botAllowed(groups, b.ua); return { name: b.name, allowed: r.allowed, matched: r.matched }; });
   const majorBlocked = AI_BOTS.filter((b, i) => b.major && !bots[i].allowed).length;
   const llmsPresent = !!(llmsTxt && llmsTxt.trim().length > 0 && !/^\s*</.test(llmsTxt));
-  const aiAccess: AiAccess = { bots, llmsTxt: llmsPresent, majorBlocked, checked: robotsTxt != null || true };
+  const aiAccess: AiAccess = { bots, llmsTxt: llmsPresent, majorBlocked, checked: true };
 
   // ---- answers ----
   const a: Record<string, Ans> = {};
