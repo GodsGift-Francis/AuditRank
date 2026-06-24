@@ -18,6 +18,8 @@ function rateLimited(ip: string, max = 30, windowMs = 60000): boolean {
   const now = Date.now();
   const arr = (HITS.get(ip) || []).filter(t => now - t < windowMs);
   arr.push(now); HITS.set(ip, arr);
+  // opportunistic cleanup so the map cannot grow unbounded over time
+  if (HITS.size > 5000) for (const [k, v] of HITS) { if (!v.length || now - v[v.length - 1] > windowMs) HITS.delete(k); }
   return arr.length > max;
 }
 function clientIp(req: any): string { return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'unknown'; }
@@ -39,7 +41,7 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(resolve(__dirname, '../public')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'auditrank-app' }));
-app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.4.0', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report', 'scheduled-rescan', 'drop-alerts', 'deep-research'] }));
+app.get('/api/version', (_req, res) => res.json({ ok: true, name: 'auditrank-app', version: '1.4.1', features: ['ai-crawler-readiness', 'evidence-confidence', 'live-stream', 'fix-kit', 'monitoring', 'ssrf-guard', 'multi-page-crawl', 'page-type-framing', 'off-page-authority', 'benchmarks', 'competitor-comparison', 'prompt-intelligence', 'shareable-report', 'scheduled-rescan', 'drop-alerts', 'deep-research'] }));
 
 /** Run a full zero-key audit: fetch the site server-side, analyze, score, return report. */
 app.post('/api/audit', async (req, res) => {

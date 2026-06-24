@@ -334,3 +334,23 @@ single call (`POST /api/deep`). The report is explicit that it is an independent
 crawl-based analysis: real search queries, clicks, average position and index coverage
 require the verified owner to connect Google Search Console, which is planned for the
 connected (keyed) tier. That keeps the no-key promise while leaving a clear upgrade path.
+
+---
+
+## Maintenance: bug-scan pass (v1.4.1)
+
+Fixes from a full review of the codebase:
+- Deep research could re-crawl a site a second time: the SSE error handler fired on
+  normal stream close after success. It now only falls back to a direct request when no
+  report has arrived.
+- Script and style text was being counted as page copy. This inflated word counts (one
+  test site went from 1869 to 557 real words), masked thin pages, and let numbers inside
+  JavaScript or JSON-LD inflate the "citable facts" signal. The analyzer and the deep
+  crawler now strip script, style, noscript and template before counting visible copy.
+- Shareable report IDs could occasionally be shorter than the lookup pattern allowed,
+  which would 404 a valid link. IDs are now a guaranteed fixed length.
+- The in-memory rate-limit map never evicted stale IPs; it now prunes opportunistically.
+
+Known limitation (by design, not a bug): the JSON file store does read-modify-write
+without locking, so truly simultaneous writes in a single process could drop a snapshot.
+Fine for self-hosting; move to Postgres (same API) for high concurrency.

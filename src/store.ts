@@ -68,8 +68,9 @@ function persistShares(db: ShareDB) { mkdirSync(DATA_DIR, { recursive: true }); 
 
 export function saveSharedReport(report: any): string {
   const db = loadShares();
-  let id = Math.random().toString(36).slice(2, 10);
-  while (db[id]) id = Math.random().toString(36).slice(2, 10);
+  const gen = () => (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/gi, '').slice(0, 8);
+  let id = gen();
+  while (id.length < 6 || db[id]) id = gen();
   db[id] = { at: new Date().toISOString(), report };
   const ids = Object.keys(db);
   if (ids.length > 500) { ids.sort((a, b) => (db[a].at < db[b].at ? -1 : 1)); for (const k of ids.slice(0, ids.length - 500)) delete db[k]; }

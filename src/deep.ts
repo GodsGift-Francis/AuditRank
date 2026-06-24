@@ -41,10 +41,15 @@ export function extractPage(html: string, url: string, status: number, redirecte
   const metaDesc = ($('meta[name="description"]').attr('content') || '').trim();
   const robotsMeta = ($('meta[name="robots"]').attr('content') || '').toLowerCase();
   const canonical = $('link[rel="canonical"]').attr('href') || null;
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-  const words = bodyText ? bodyText.split(' ').length : 0;
+  const schemaTypes: string[] = [];
+  $('script[type="application/ld+json"]').each((_, s) => {
+    const t = $(s).contents().text(); const m = t.match(/"@type"\s*:\s*"([^"]+)"/g);
+    if (m) m.forEach(x => { const v = x.replace(/.*"([^"]+)"$/, '$1'); if (!schemaTypes.includes(v)) schemaTypes.push(v); });
+  });
   const imgs = $('img');
   const imgWithAlt = imgs.filter((_, e) => (($(e).attr('alt') || '').trim().length > 0)).length;
+  const h1Count = $('h1').length;
+  const viewport = $('meta[name="viewport"]').length > 0;
   const h = host(url);
   const internal: string[] = []; let external = 0;
   $('a[href]').each((_, a) => {
@@ -53,19 +58,18 @@ export function extractPage(html: string, url: string, status: number, redirecte
     let abs: string; try { abs = new URL(href, url).toString(); } catch { return; }
     if (host(abs) === h) internal.push(norm(abs)); else if (/^https?:/i.test(abs)) external++;
   });
-  const schemaTypes: string[] = [];
-  $('script[type="application/ld+json"]').each((_, s) => {
-    const t = $(s).contents().text(); const m = t.match(/"@type"\s*:\s*"([^"]+)"/g);
-    if (m) m.forEach(x => { const v = x.replace(/.*"([^"]+)"$/, '$1'); if (!schemaTypes.includes(v)) schemaTypes.push(v); });
-  });
+  // count only visible copy, not script/style/template text
+  $('script, style, noscript, template').remove();
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+  const words = bodyText ? bodyText.split(' ').length : 0;
   return {
     url: norm(url), status, redirected, fetchMs, bytes,
     title, titleLen: title.length, metaDesc, metaDescLen: metaDesc.length,
-    h1Count: $('h1').length, wordCount: words,
+    h1Count, wordCount: words,
     imgCount: imgs.length, imgWithAlt,
     internalLinks: Array.from(new Set(internal)), externalLinks: external,
     canonical: canonical ? norm(canonical) : null,
-    noindex: /noindex/.test(robotsMeta), viewport: $('meta[name="viewport"]').length > 0,
+    noindex: /noindex/.test(robotsMeta), viewport,
     schemaTypes, https: url.startsWith('https:'), ok: status >= 200 && status < 300 && !!html,
   };
 }

@@ -39,7 +39,11 @@ function botAllowed(groups: RGroup[], ua: string): { allowed: boolean; matched: 
 export function analyze(html: string, url: string, robotsTxt: string | null, sitemapXml: string | null, llmsTxt: string | null, fetchMs = 0): Detection {
   const $ = cheerio.load(html);
   const raw = html;
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim() || $.text();
+  // bodyText = visible copy only; strip code/style so JS numbers and CSS don't
+  // inflate word count or the facts/numbers detection. Keep $ intact for schema/script checks.
+  const $t = cheerio.load(html);
+  $t('script, style, noscript, template').remove();
+  const bodyText = ($t('body').text() || $t.text()).replace(/\s+/g, ' ').trim();
 
   const heads = $('h1,h2,h3,h4').map((_, el) => $(el).text().trim()).get().filter(Boolean);
   const qHead = heads.filter(h => /\?\s*$/.test(h) || /^(how|what|why|when|where|can|do|does|is|are|should|which)\b/i.test(h));

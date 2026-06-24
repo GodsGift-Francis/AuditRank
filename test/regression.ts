@@ -164,5 +164,13 @@ check('deep: splits internal vs external links', pd.internalLinks.length === 1 &
 check('deep: detects noindex + schema type', pd.noindex === true && pd.schemaTypes.indexOf('Organization') >= 0);
 check('deep: normalizes canonical', pd.canonical === 'https://acme.test/page');
 
+// ---- Fixture 14: script/style text must not count as page copy ----
+const scriptHeavy = '<html><head><title>Thin</title></head><body><h1>Hi</h1><p>Just a short line.</p><script>var nums=[1,2,3,4,5,6,7,8,9,10,11,12,13,14]; var prices="$10 $20 $30 $40 $50 $60"; var words="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda";</script></body></html>';
+const dsh = analyze(scriptHeavy, 'https://sh.test', null, null, null, 100);
+check('analyze: script numbers do not credit facts', dsh.answers.facts !== 'yes', String(dsh.answers.facts));
+check('analyze: script text does not defeat thin classification', dsh.pageType === 'thin', dsh.pageType);
+const dpScript = extractPage(scriptHeavy, 'https://sh.test', 200, false, 100, scriptHeavy.length);
+check('deep: word count excludes script text', dpScript.wordCount < 12, String(dpScript.wordCount));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

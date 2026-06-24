@@ -404,7 +404,7 @@ window.runDeep = function () {
     var es = new EventSource('/api/deep/stream?website=' + encodeURIComponent(state.site) + '&name=' + encodeURIComponent(state.name || ''));
     es.addEventListener('log', function (e) { try { var d = JSON.parse(e.data); var s = $('deepStat'); if (s && d.label) s.textContent = d.label; } catch (x) {} });
     es.addEventListener('done', function (e) { es.close(); try { var d = JSON.parse(e.data); if (!d.ok) { el.innerHTML = '<div class="deeperr">' + esc(d.note || 'Could not read that site.') + '</div>'; return; } state._deepReport = d; renderDeepDashboard(d); } catch (x) { fallbackDeep(); } });
-    es.addEventListener('error', function () { es.close(); fallbackDeep(); });
+    es.addEventListener('error', function () { es.close(); if (!state._deepReport) fallbackDeep(); });
   } catch (x) { fallbackDeep(); }
 };
 function fallbackDeep() {
