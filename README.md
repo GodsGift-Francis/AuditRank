@@ -354,3 +354,14 @@ Fixes from a full review of the codebase:
 Known limitation (by design, not a bug): the JSON file store does read-modify-write
 without locking, so truly simultaneous writes in a single process could drop a snapshot.
 Fine for self-hosting; move to Postgres (same API) for high concurrency.
+
+---
+
+## Maintenance: atomic writes (v1.4.2)
+
+The JSON store now writes atomically (write to a temp file, then rename). A crash or
+kill mid-write can no longer truncate and corrupt the data file, which previously would
+have made the loader silently fall back to empty and lose all history. Reads and writes
+are already serialized within a single process because the file I/O is synchronous;
+horizontal (multi-process) deployments should still move to Postgres, for which the
+store's function API is a drop-in surface.

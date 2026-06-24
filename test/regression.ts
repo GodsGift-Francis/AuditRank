@@ -6,6 +6,7 @@ import { buildShareCard, buildSharePage } from '../src/share.js';
 import { saveSharedReport, getSharedReport, upsertMonitor, getMonitor, stopMonitor } from '../src/store.js';
 import { shouldAlert, buildAlertText, isSafeWebhook } from '../src/alerts.js';
 import { extractPage } from '../src/deep.js';
+import { readdirSync } from 'node:fs';
 
 // Golden-fixture regression tests (A3). Run: npm test
 // These lock the analyzer's behavior so detection never silently regresses.
@@ -171,6 +172,11 @@ check('analyze: script numbers do not credit facts', dsh.answers.facts !== 'yes'
 check('analyze: script text does not defeat thin classification', dsh.pageType === 'thin', dsh.pageType);
 const dpScript = extractPage(scriptHeavy, 'https://sh.test', 200, false, 100, scriptHeavy.length);
 check('deep: word count excludes script text', dpScript.wordCount < 12, String(dpScript.wordCount));
+
+// ---- Fixture 15: atomic writes leave no temp files ----
+saveSharedReport({ score: 42, band: 'Emerging', business: { name: 'Tmp Test' } });
+const leftovers = (() => { try { return readdirSync('data').filter(f => f.endsWith('.tmp')); } catch { return []; } })();
+check('store: atomic write cleans up its temp file', leftovers.length === 0, leftovers.join(','));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

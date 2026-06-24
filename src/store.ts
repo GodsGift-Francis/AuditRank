@@ -1,13 +1,25 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Lightweight, zero-dependency persistence keyed by website host. Stores a small
 // snapshot per audit so we can compare week over week. For scale, swap the read/
 // write here for Postgres (the API surface stays the same).
+//
+// Writes are atomic (temp file + rename) so a crash mid-write cannot corrupt the
+// data file. Note: file I/O here is synchronous, so reads and writes are already
+// serialized within a single process; multi-process deployments should use Postgres.
 
 const DATA_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../data');
 const FILE = resolve(DATA_DIR, 'audits.json');
+
+/** Write JSON atomically: a crash during the write leaves the old file intact. */
+function writeAtomic(file: string, contents: string) {
+  mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, contents);
+  renameSync(tmp, file);
+}
 
 export interface Snapshot { at: string; score: number; band: string; signals: Record<string, number>; }
 export interface SiteRecord { key: string; name: string; website: string; snapshots: Snapshot[]; }
@@ -24,10 +36,7 @@ function load(): DB {
   try { if (existsSync(FILE)) return JSON.parse(readFileSync(FILE, 'utf8')) as DB; } catch { /* ignore */ }
   return {};
 }
-function persist(db: DB) {
-  mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(FILE, JSON.stringify(db, null, 2));
-}
+function persist(db: DB) { writeAtomic(FILE, JSON.stringify(db, null, 2)); }
 
 export function saveSnapshot(name: string, website: string, score: number, band: string, signals: Record<string, number>): SiteRecord {
   const db = load();
@@ -64,7 +73,7 @@ export function allSiteRecords(): SiteRecord[] { return Object.values(load()); }
 const SHARE_FILE = resolve(DATA_DIR, 'shared.json');
 type ShareDB = Record<string, { at: string; report: any }>;
 function loadShares(): ShareDB { try { if (existsSync(SHARE_FILE)) return JSON.parse(readFileSync(SHARE_FILE, 'utf8')) as ShareDB; } catch { /* ignore */ } return {}; }
-function persistShares(db: ShareDB) { mkdirSync(DATA_DIR, { recursive: true }); writeFileSync(SHARE_FILE, JSON.stringify(db)); }
+function persistShares(db: ShareDB) { writeAtomic(SHARE_FILE, JSON.stringify(db)); }
 
 export function saveSharedReport(report: any): string {
   const db = loadShares();
@@ -93,7 +102,7 @@ export interface Monitor {
 }
 type MonDB = Record<string, Monitor>;
 function loadMonitors(): MonDB { try { if (existsSync(MON_FILE)) return JSON.parse(readFileSync(MON_FILE, 'utf8')) as MonDB; } catch { /* ignore */ } return {}; }
-function persistMonitors(db: MonDB) { mkdirSync(DATA_DIR, { recursive: true }); writeFileSync(MON_FILE, JSON.stringify(db, null, 2)); }
+function persistMonitors(db: MonDB) { writeAtomic(MON_FILE, JSON.stringify(db, null, 2)); }
 
 export function upsertMonitor(input: { website: string; name?: string; cadence?: Monitor['cadence']; webhook?: string; email?: string }): Monitor {
   const db = loadMonitors();
